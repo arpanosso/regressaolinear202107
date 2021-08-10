@@ -1,0 +1,164 @@
+---
+title: "Código livre - Regressão Linear"
+author: "Athos Petri Damiani"
+date: "1/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(glue)
+```
+
+
+## Dados: visao.csv
+
+Fonte: [Ciência de Dados, página 149](https://curso-r.github.io/main-regressao-linear/referencias/Ci%C3%AAncia%20de%20Dados.%20Fundamentos%20e%20Aplica%C3%A7%C3%B5es.%20Vers%C3%A3o%20parcial%20preliminar.%20maio%20Pedro%20A.%20Morettin%20Julio%20M.%20Singer.pdf)
+
+```{r}
+visao <- readr::read_csv2("https://raw.githubusercontent.com/curso-r/main-regressao-linear/master/misc/visao.csv")
+DT::datatable(visao)
+```
+
+## Exemplo1: Reta na mão vs regressão linear
+
+```{r}
+# reta na mão: chutar uma reta
+minha_reta <- function(x) 50 + 3 * x
+```
+
+```{r}
+ggplot(visao, aes(x  = idade, y = distancia)) +
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_function(fun = minha_reta, colour = "red") +
+  coord_fixed(ratio = 0.2, xlim = c(15, 90), ylim = c(80, 240))
+```
+
+## Exemplo 2: comparar médias entre grupos
+
+```{r}
+library(ISLR)
+credit <- ISLR::Credit %>%
+  na.omit() %>%
+  mutate(
+    Educacao_categorizada = cut(Education, breaks = quantile(Education, probs = (0:5)/5)),
+    Renda_categorizada = cut(Income, breaks = quantile(Income, probs = (0:5)/5)),
+    Limite_categorizada = cut(Limit, breaks = quantile(Limit, probs = (0:5)/5)),
+    Idade_categorizada = cut(Age, breaks = quantile(Age, probs = (0:5)/5))
+  )
+
+# writexl::write_xlsx(credit, "../misc/credit.xlsx")
+```
+
+
+```{r}
+matriz_de_decisao <- credit %>%
+  group_by(Idade_categorizada, Renda_categorizada) %>%
+  summarise(
+    cpfs = n(),
+    saldo = mean(Balance)
+  ) %>%
+  na.omit()
+```
+
+
+```{r}
+# Matriz de médias de saldo
+matriz_de_decisao_grafico <- matriz_de_decisao %>%
+  mutate(rotulo = glue("{round(saldo, 2)} ({cpfs})")) %>%
+  ggplot(aes(x = Renda_categorizada, y = Idade_categorizada)) +
+  geom_tile(aes(fill = saldo)) +
+  geom_text(aes(label = rotulo), colour = "white", fontface = "bold") +
+  scale_fill_gradient2(low = "darkred", mid = "#ddddaa", high = "midnightblue", midpoint = 600)
+
+matriz_de_decisao_grafico
+```
+
+
+```{r}
+# regressao
+estimador_de_saldo <- lm(Balance ~ Income + Age, data = credit)
+```
+
+```{r}
+library(gtsummary)
+tbl_regression(estimador_de_saldo)
+```
+
+2 + 2 é igual a 4.
+
+```{r}
+2+2
+```
+
+
+```{r}
+credit_com_predicoes <- broom::augment(estimador_de_saldo) %>%
+  mutate(
+    Renda_categorizada = cut(Income, breaks = quantile(Income, probs = (0:5)/5)),
+    Idade_categorizada = cut(Age, breaks = quantile(Age, probs = (0:5)/5))
+  )
+```
+
+
+```{r}
+matriz_estrategia <- credit_com_predicoes %>%
+  na.omit() %>%
+  group_by(Idade_categorizada, Renda_categorizada) %>%
+  summarise(saldo_predito = mean(.fitted)) %>%
+  mutate(decisao = ifelse(saldo_predito > 600, 400, 800)) %>%
+  ggplot(aes(x = Renda_categorizada, y = Idade_categorizada)) +
+  scale_fill_gradient2(low = "darkred", mid = "#ddddaa", high = "midnightblue", midpoint = 600)
+
+matriz_estrategia_sem_decisao <- matriz_estrategia + geom_tile(aes(fill = saldo_predito))
+matriz_estrategia_com_decisao <- matriz_estrategia + geom_tile(aes(fill = decisao))
+```
+
+```{r}
+library(patchwork)
+matriz_de_decisao_grafico / matriz_estrategia_sem_decisao /matriz_estrategia_com_decisao
+```
+
+```{r}
+# tabela analítica
+credit_com_predicoes %>% select(Renda = Income, Idade = Age, 
+                                Saldo = Balance, predicao = .fitted) %>%
+  arrange(desc(predicao))
+```
+
+## Exemplo 3: Pinguins (ANOVA)
+
+```{r}
+library(palmerpenguins)
+penguins %>% select(species, flipper_length_mm)
+```
+
+```{r}
+penguins %>%
+  group_by(species) %>%
+  summarise(
+    n = n(),
+    flipper_length_mm_media = mean(flipper_length_mm, na.rm = TRUE)
+  )
+```
+
+```{r}
+ggplot(penguins, aes(x = species, y = flipper_length_mm, colour = species)) +
+  geom_jitter(alpha = 0.1) +
+  geom_boxplot(fill = NA) +
+  theme_minimal()
+```
+
+
+```{r}
+modelo_para_nadadeiras <- lm(flipper_length_mm ~ species, data = penguins)
+summary(modelo_para_nadadeiras)
+```
+```{r}
+tbl_regression(modelo_para_nadadeiras)
+```
+
+
+
