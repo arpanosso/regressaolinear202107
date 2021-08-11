@@ -25,9 +25,9 @@ library(tidyverse)
 
 ```{r}
 # cars
-glimpse(cars)
-ggplot(cars) + 
-  geom_point(aes(x = speed, y = dist))
+dplyr::glimpse(cars)
+ggplot2::ggplot(cars) + 
+  ggplot2::geom_point(ggplot2::aes(x = speed, y = dist))
 ```
 
 ## ajuste de uma regressão linear simples
@@ -40,7 +40,8 @@ melhor_reta <- lm(dist ~ speed, data = cars)
 ```{r}
 # http://www.danieldsjoberg.com/gtsummary/
 library(gtsummary)
-tbl_regression(melhor_reta)
+gtsummary::tbl_regression(melhor_reta)
+summary.lm(melhor_reta)
 ```
 
 
@@ -48,15 +49,15 @@ tbl_regression(melhor_reta)
 ## tabela com as predições junto
 
 ```{r}
-cars_com_predicoes <- augment(melhor_reta)
-glimpse(cars_com_predicoes)
+cars_com_predicoes <- broom::augment(melhor_reta)
+dplyr::glimpse(cars_com_predicoes)
 ```
 
 ## Gráfico com a reta ajustada
 ```{r}
-ggplot(cars_com_predicoes) + 
-  geom_point(aes(x = speed, y = dist)) +
-  geom_line(aes(x = speed, y = .fitted))
+ggplot2::ggplot(cars_com_predicoes) + 
+  ggplot2::geom_point(ggplot2::aes(x = speed, y = dist)) +
+  ggplot2::geom_line(ggplot2::aes(x = speed, y = .fitted))
 ```
 
 
@@ -69,10 +70,11 @@ Calcule o EQM da melhor reta e compare com a saída do `summary(melhor_reta)`.
 # dicas:
 # yh é o y chapéu (ou valor ajustado). O nome da coluna retornado pelo augment() para o yh é o .fitted
 # EQM = mean((y - yh)^2).
-y <-
-yh <- 
-
-EQM <- 
+y <- cars_com_predicoes$dist
+yh <- cars_com_predicoes$.fitted
+EQM <- mean((y - yh)^2)
+EQM <- (1/length(y) * sum((y-yh)^2))^.5 
+summary((melhor_reta))
 ```
 
 ```{r}
@@ -89,11 +91,13 @@ calcule beta0 e beta1
 x <- cars$speed
 y <- cars$dist
 
-xbarra <-  #média de X
-ybarra <-  #média de y
+xbarra <- mean(x) #média de X
+ybarra <- mean(y) #média de y
 
-beta1 <- 
-beta0 <- 
+beta1 <- sum((x-xbarra)*(y-ybarra))/sum((x-xbarra)^2)
+beta1
+beta0 <- ybarra - beta1*xbarra
+beta0
 ```
 
 
@@ -105,7 +109,11 @@ beta0 <-
 Tire as informações do objeto `melhor_reta` para decidir se speed está associado com dist. Use a função `summary()`.
 
 ```{r}
-
+resumo_melhor_reta <- summary(melhor_reta)
+resumo_melhor_reta$coefficients[1]  #beta0
+resumo_melhor_reta$coefficients[2]  #beta1
+resumo_melhor_reta$r.squared
+resumo_melhor_reta$adj.r.squared
 ```
 
 ## Exercício 4 
@@ -121,8 +129,7 @@ Interprete o parâmetro `speed` (beta 1).
 Calcule o R2 para a `melhor reta` e depois compare com o valor da saída do `summary()`.
 
 ```{r}
-r2 <- 
-  
+r2 <- 1-sum((y-yh)^2)/sum((y-ybarra)^2)
 summary(melhor_reta)
 ```
 
@@ -132,8 +139,8 @@ summary(melhor_reta)
 Calcule o R2 ajustado para a `melhor reta` e depois compare com o valor da saída do `summary()`.
 
 ```{r}
-N <- 
-r2aj <- 
+N <- length(y)
+r2aj <- 1-sum((y-yh)^2)/sum((y-ybarra)^2)*(N-1)/(N-2)
 ```
 
 
