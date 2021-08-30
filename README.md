@@ -267,67 +267,50 @@ br |>
              alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- --> A partir da
-função `point.in.pol()` do pacote `{sp}`, criamos a função abaixo para
-facilitar o processo de filtragem em para de um polígono pré-definido.
+![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 ``` r
-def_pol <- function(x, y, pol){
-  as.logical(sp::point.in.polygon(point.x = x,
-                                  point.y = y,
-                                  pol.x = pol[,1],
-                                  pol.y = pol[,2]))
-}
-```
+oco2_br <- readr::read_rds("data/oco2_br.rds")
 
-Corrigindo as falhas do polígono e criando os polígonos para cada região
-do país.
-
-``` r
-# Retirando alguns pontos
-pol_br <- pol_br[pol_br[,1]<=-34,]
-pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
-                              (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
-
-pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
-pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.6) & pol_nordeste[,2]<= -15),]
-
-# Criando as flags
-oco2 <- oco2 |>
-          dplyr::mutate(
-            flag_br = def_pol(longitude, latitude, pol_br),
-            flag_norte = def_pol(longitude, latitude, pol_norte),
-            flag_nordeste = def_pol(longitude, latitude, pol_nordeste),
-            flag_sul = def_pol(longitude, latitude, pol_sul),
-            flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
-            flag_centroeste = def_pol(longitude, latitude, pol_centroeste)
-            )
-```
-
-``` r
 # Plot do mapa e os pontos
-oco2<-oco2 |>
-  dplyr::mutate(
-    flag_br = flag_br | flag_nordeste
-  )
 br |>
   ggplot2::ggplot() +
   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
           size=.15, show.legend = FALSE) + 
-  ggplot2::geom_point(data=oco2 |> 
-                      dplyr::filter(flag_br, year == 2014),
+  ggplot2::geom_point(data=oco2_br |> 
+                      dplyr::filter(year == 2014),
              ggplot2::aes(x=longitude, y=latitude),
              shape=3,
              col="red",
              alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
-
-Agora podemos guardar esses dados para realizar as análises futuras.
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 ``` r
-oco2_br <- oco2 |>
-  dplyr::filter( flag_br | flag_nordeste ) 
-readr::write_rds(oco2_br,"data/oco2_br.rds")
+# oco2_nest <- oco2_br |> 
+#   tidyr::pivot_longer(
+#     starts_with("flag"),
+#     names_to = "region",
+#     values_to = "flag"
+#   ) |> 
+#   dplyr::filter(flag) |> 
+#   dplyr::mutate(region = stringr::str_remove(region,"flag_")) |> 
+#   dplyr::group_by(longitude, latitude, region) |> 
+#   # dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |> 
+#   tidyr::nest() 
+# head(oco2_nest)
+# 
+# minha_fun <- function(df){
+#   nrow(df)
+#   df$xco2
+# }
+# minha_fun(oco2_nest$data[5][1])
+# 
+# oco2_nest <- oco2_nest |> 
+#   dplyr::mutate( 
+#     nn = purrr::map(data,minha_fun)
+#     )
+# 
+# oco2_nest$data[5]
 ```
