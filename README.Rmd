@@ -106,6 +106,13 @@ mod <- lm(xco2_mean ~ month_year, data = oco2_aux)
 summary(mod)
 ```
 
+
+```{r, warning=FALSE, error=FALSE, message=FALSE}
+b1 <- 7.222e-03
+b1li <- b1 - 1.725e-04 
+b1ls <- b1 + 1.725e-04 
+```
+
 ```{r}
 broom::augment(mod)
 broom::augment(mod, interval="confidence")
@@ -113,7 +120,7 @@ plot(mod)
 # cooks.distance(mod)
 ```
 
-A próxima operação é selecionarmos na base de dados somente os pontos pertencentes ao território brasileiro. Assim vamos utilizar o pacote geobr para criarmos o filtro a partir do polígono do Brasil e regiões.
+A próxima operação é selecionarmos na base de dados somente os pontos pertencentes ao território brasileiro. Assim vamos utilizar o pacote `{geobr}` para criarmos o filtro a partir dos polígonos das diferentes regiões do Brasil.
 
 ```{r}
 regiao <- geobr::read_region(showProgress = FALSE)
@@ -136,7 +143,7 @@ pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 ```
 
 
-Plot dos pontos e o polígono.
+Plot de todos os pontos.
 
 ```{r}
 br |>
@@ -153,49 +160,135 @@ br |>
 
 ```{r}
 oco2_br <- readr::read_rds("data/oco2_br.rds")
-
-# Plot do mapa e os pontos
-br |>
-  ggplot2::ggplot() +
-  ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
-          size=.15, show.legend = FALSE) + 
-  ggplot2::geom_point(data=oco2_br |> 
-                      dplyr::filter(year == 2014),
-             ggplot2::aes(x=longitude, y=latitude),
-             shape=3,
-             col="red",
-             alpha=0.2)
-
 ```
 
 
 
 
 ```{r}
-# oco2_nest <- oco2_br |> 
-#   tidyr::pivot_longer(
-#     starts_with("flag"),
-#     names_to = "region",
-#     values_to = "flag"
-#   ) |> 
-#   dplyr::filter(flag) |> 
-#   dplyr::mutate(region = stringr::str_remove(region,"flag_")) |> 
-#   dplyr::group_by(longitude, latitude, region) |> 
-#   # dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |> 
-#   tidyr::nest() 
-# head(oco2_nest)
-# 
-# minha_fun <- function(df){
-#   nrow(df)
-#   df$xco2
-# }
-# minha_fun(oco2_nest$data[5][1])
-# 
-# oco2_nest <- oco2_nest |> 
-#   dplyr::mutate( 
-#     nn = purrr::map(data,minha_fun)
-#     )
-# 
-# oco2_nest$data[5]
+oco2_nest <- oco2_br |>
+  tibble::as_tibble() |> 
+  dplyr::mutate(quarter = lubridate::quarter(data),
+                quarter_year = lubridate::make_date(year, quarter, 1)) |>  
+  tidyr::pivot_longer(
+    starts_with("flag"),
+    names_to = "region",
+    values_to = "flag"
+  ) |> 
+  dplyr::filter(flag) |> 
+  dplyr::mutate(region = stringr::str_remove(region,"flag_")) |> 
+  dplyr::group_by(region, longitude, latitude, quarter_year) |> 
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |> 
+  dplyr::mutate(
+    regi = region,
+    id_time = quarter_year
+  ) |> 
+  dplyr::group_by(region, latitude, longitude) |> 
+  tidyr::nest() 
+
+
 ```
 
+
+```{r}
+plot_extractor<- function(df){
+  df |> 
+    ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
+    ggplot2::geom_point()
+}; plot_extractor(oco2_nest$data[[1]])
+```
+
+
+```{r}
+beta1_extractor<- function(df){
+  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  beta_1 <- c(summary(modelo)$coefficients[2])
+  if(is.nan(beta_1)) beta_1 <- 0
+  return(beta_1)
+}; beta1_extractor(oco2_nest$data[[1]])
+
+ep_extractor <- function(df){
+  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  beta_1 <- summary(modelo)$coefficients[2]
+  if(is.nan(beta_1)){
+    ep <- 0
+  } else {
+    ep <- summary(modelo)$coefficients[2,2]
+  }
+  return(ep)
+}; ep_extractor(oco2_nest$data[[1]])
+
+pvalue_extractor <- function(df){
+  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  beta_1 <- summary(modelo)$coefficients[2]
+  if(is.nan(beta_1)){
+    p <- 1
+  } else {
+    p <- summary(modelo)$coefficients[2,4]
+    if(is.nan(p)) p <- 1
+  }
+  return(p)
+}; pvalue_extractor(oco2_nest$data[[3]])
+
+for(i in 100:200){
+  print(paste0(i, ": ",pvalue_extractor(oco2_nest$data[[i]])))
+}
+
+oco2_nest <- oco2_nest |> 
+  dplyr::mutate( 
+    beta1 = purrr::map(data,beta1_extractor),
+    dpb = purrr::map(data,ep_extractor),
+    p_value = purrr::map(data,pvalue_extractor),
+    plots = purrr::map(data,plot_extractor)
+  )
+
+oco2_nest$plots[[13]]
+```
+
+```{r}
+oco2_nest |> 
+  dplyr::filter(region == "centroeste") |> 
+  dplyr::filter(p_value < 0.05) |> 
+  dplyr::mutate(class = ifelse(beta1 > b1ls,
+                               "fonte",ifelse(beta1 < b1li, "sumidouro", "nulo"))
+                ) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+```
+
+```{r}
+oco2_nest |> 
+  dplyr::filter(region == "nordeste") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+```
+
+```{r}
+oco2_nest |> 
+  dplyr::filter(region == "centroeste") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+```
+
+```{r}
+oco2_nest |> 
+  dplyr::filter(region == "sudeste") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+```
+
+```{r}
+oco2_nest |> 
+  dplyr::filter(region == "sul") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+```

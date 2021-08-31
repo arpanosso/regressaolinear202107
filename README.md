@@ -188,6 +188,12 @@ summary(mod)
 ```
 
 ``` r
+b1 <- 7.222e-03
+b1li <- b1 - 1.725e-04 
+b1ls <- b1 + 1.725e-04 
+```
+
+``` r
 broom::augment(mod)
 #> # A tibble: 73 x 8
 #>    xco2_mean month_year .fitted   .resid   .hat .sigma     .cooksd .std.resid
@@ -221,7 +227,7 @@ broom::augment(mod, interval="confidence")
 plot(mod)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-4.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-4.png)<!-- -->
 
 ``` r
 # cooks.distance(mod)
@@ -229,7 +235,8 @@ plot(mod)
 
 A próxima operação é selecionarmos na base de dados somente os pontos
 pertencentes ao território brasileiro. Assim vamos utilizar o pacote
-geobr para criarmos o filtro a partir do polígono do Brasil e regiões.
+`{geobr}` para criarmos o filtro a partir dos polígonos das diferentes
+regiões do Brasil.
 
 ``` r
 regiao <- geobr::read_region(showProgress = FALSE)
@@ -253,7 +260,7 @@ pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
 pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 ```
 
-Plot dos pontos e o polígono.
+Plot de todos os pontos.
 
 ``` r
 br |>
@@ -267,50 +274,256 @@ br |>
              alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
-
-``` r
-oco2_br <- readr::read_rds("data/oco2_br.rds")
-
-# Plot do mapa e os pontos
-br |>
-  ggplot2::ggplot() +
-  ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
-          size=.15, show.legend = FALSE) + 
-  ggplot2::geom_point(data=oco2_br |> 
-                      dplyr::filter(year == 2014),
-             ggplot2::aes(x=longitude, y=latitude),
-             shape=3,
-             col="red",
-             alpha=0.2)
-```
-
 ![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 ``` r
-# oco2_nest <- oco2_br |> 
-#   tidyr::pivot_longer(
-#     starts_with("flag"),
-#     names_to = "region",
-#     values_to = "flag"
-#   ) |> 
-#   dplyr::filter(flag) |> 
-#   dplyr::mutate(region = stringr::str_remove(region,"flag_")) |> 
-#   dplyr::group_by(longitude, latitude, region) |> 
-#   # dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |> 
-#   tidyr::nest() 
-# head(oco2_nest)
-# 
-# minha_fun <- function(df){
-#   nrow(df)
-#   df$xco2
-# }
-# minha_fun(oco2_nest$data[5][1])
-# 
-# oco2_nest <- oco2_nest |> 
-#   dplyr::mutate( 
-#     nn = purrr::map(data,minha_fun)
-#     )
-# 
-# oco2_nest$data[5]
+oco2_br <- readr::read_rds("data/oco2_br.rds")
 ```
+
+``` r
+oco2_nest <- oco2_br |>
+  tibble::as_tibble() |> 
+  dplyr::mutate(quarter = lubridate::quarter(data),
+                quarter_year = lubridate::make_date(year, quarter, 1)) |>  
+  tidyr::pivot_longer(
+    starts_with("flag"),
+    names_to = "region",
+    values_to = "flag"
+  ) |> 
+  dplyr::filter(flag) |> 
+  dplyr::mutate(region = stringr::str_remove(region,"flag_")) |> 
+  dplyr::group_by(region, longitude, latitude, quarter_year) |> 
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |> 
+  dplyr::mutate(
+    regi = region,
+    id_time = quarter_year
+  ) |> 
+  dplyr::group_by(region, latitude, longitude) |> 
+  tidyr::nest() 
+#> `summarise()` has grouped output by 'region', 'longitude', 'latitude'. You can override using the `.groups` argument.
+```
+
+``` r
+plot_extractor<- function(df){
+  df |> 
+    ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
+    ggplot2::geom_point()
+}; plot_extractor(oco2_nest$data[[1]])
+```
+
+![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+``` r
+beta1_extractor<- function(df){
+  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  beta_1 <- c(summary(modelo)$coefficients[2])
+  if(is.nan(beta_1)) beta_1 <- 0
+  return(beta_1)
+}; beta1_extractor(oco2_nest$data[[1]])
+#> [1] 0.005056673
+
+ep_extractor <- function(df){
+  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  beta_1 <- summary(modelo)$coefficients[2]
+  if(is.nan(beta_1)){
+    ep <- 0
+  } else {
+    ep <- summary(modelo)$coefficients[2,2]
+  }
+  return(ep)
+}; ep_extractor(oco2_nest$data[[1]])
+#> [1] 0.001523023
+
+pvalue_extractor <- function(df){
+  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  beta_1 <- summary(modelo)$coefficients[2]
+  if(is.nan(beta_1)){
+    p <- 1
+  } else {
+    p <- summary(modelo)$coefficients[2,4]
+    if(is.nan(p)) p <- 1
+  }
+  return(p)
+}; pvalue_extractor(oco2_nest$data[[3]])
+#> [1] 1.128489e-06
+
+for(i in 100:200){
+  print(paste0(i, ": ",pvalue_extractor(oco2_nest$data[[i]])))
+}
+#> [1] "100: 0.113747451417962"
+#> [1] "101: 0.37265467962619"
+#> [1] "102: 0.436998914019986"
+#> [1] "103: 0.76154670663007"
+#> [1] "104: 1"
+#> [1] "105: 0.0757004417246969"
+#> [1] "106: 0.0160629006719308"
+#> [1] "107: 1"
+#> [1] "108: 0.13848222557524"
+#> [1] "109: 0.132323185594749"
+#> [1] "110: 0.00242693046726438"
+#> [1] "111: 0.0136665180509469"
+#> [1] "112: 5.54753253091103e-05"
+#> [1] "113: 1.48346634908495e-07"
+#> [1] "114: 3.08904119572612e-08"
+#> [1] "115: 9.01033965050494e-08"
+#> [1] "116: 1.12922391812128e-05"
+#> [1] "117: 0.00294991162591553"
+#> [1] "118: 0.00112723289918183"
+#> [1] "119: 0.0785934779596562"
+#> [1] "120: 0.000157666097333164"
+#> [1] "121: 0.000805384962129368"
+#> [1] "122: 0.157498924015466"
+#> [1] "123: 1"
+#> [1] "124: 1"
+#> [1] "125: 0.0995696284314698"
+#> [1] "126: 0.773217185414964"
+#> [1] "127: 0.00409302853025832"
+#> [1] "128: 0.0016975067327622"
+#> [1] "129: 0.0277167378575894"
+#> [1] "130: 0.13218434013465"
+#> [1] "131: 0.556387185559503"
+#> [1] "132: 0.0358053307556141"
+#> [1] "133: 0.00602931537690356"
+#> [1] "134: 0.000192213100489937"
+#> [1] "135: 4.69226801411901e-06"
+#> [1] "136: 3.22620408075559e-09"
+#> [1] "137: 1.25530466788776e-05"
+#> [1] "138: 1.34851368152652e-08"
+#> [1] "139: 5.86890904382252e-10"
+#> [1] "140: 6.87675435655739e-09"
+#> [1] "141: 7.95644727803148e-07"
+#> [1] "142: 1.79620708885998e-05"
+#> [1] "143: 0.0129217831371734"
+#> [1] "144: 0.0640281042323971"
+#> [1] "145: 1"
+#> [1] "146: 1"
+#> [1] "147: 1"
+#> [1] "148: 1"
+#> [1] "149: 1"
+#> [1] "150: 0.0106916058733338"
+#> [1] "151: 1"
+#> [1] "152: 0.0436758042845243"
+#> [1] "153: 0.0467159340685007"
+#> [1] "154: 0.0048507354190377"
+#> [1] "155: 0.00345283611575425"
+#> [1] "156: 0.000673081130234879"
+#> [1] "157: 0.00430454680201759"
+#> [1] "158: 1.20312382575275e-06"
+#> [1] "159: 1.13884517347702e-05"
+#> [1] "160: 3.83119572464955e-06"
+#> [1] "161: 1.60797907844021e-08"
+#> [1] "162: 1.36639308318079e-10"
+#> [1] "163: 4.69782370722617e-09"
+#> [1] "164: 1.44624215615715e-06"
+#> [1] "165: 0.00095131258422156"
+#> [1] "166: 0.022637104986633"
+#> [1] "167: 1"
+#> [1] "168: 1"
+#> [1] "169: 1"
+#> [1] "170: 1"
+#> [1] "171: 1"
+#> [1] "172: 0.0727650376753845"
+#> [1] "173: 9.96015442057944e-05"
+#> [1] "174: 1"
+#> [1] "175: 1"
+#> [1] "176: 1"
+#> [1] "177: 1"
+#> [1] "178: 0.0798481515215461"
+#> [1] "179: 9.90868286821968e-06"
+#> [1] "180: 1.15047192152717e-07"
+#> [1] "181: 6.17667742999987e-10"
+#> [1] "182: 1.22521680819714e-08"
+#> [1] "183: 2.51167153121982e-08"
+#> [1] "184: 5.039088010038e-06"
+#> [1] "185: 3.11599304732984e-05"
+#> [1] "186: 0.00303910193302764"
+#> [1] "187: 0.00232157833613351"
+#> [1] "188: 0.0618289192428814"
+#> [1] "189: 1"
+#> [1] "190: 1"
+#> [1] "191: 1"
+#> [1] "192: 1"
+#> [1] "193: 1"
+#> [1] "194: 1"
+#> [1] "195: 0.043857031030586"
+#> [1] "196: 1"
+#> [1] "197: 1"
+#> [1] "198: 0.0393447420431683"
+#> [1] "199: 0.204116509402739"
+#> [1] "200: 0.0465891428410531"
+
+oco2_nest <- oco2_nest |> 
+  dplyr::mutate( 
+    beta1 = purrr::map(data,beta1_extractor),
+    dpb = purrr::map(data,ep_extractor),
+    p_value = purrr::map(data,pvalue_extractor),
+    plots = purrr::map(data,plot_extractor)
+  )
+
+oco2_nest$plots[[13]]
+```
+
+![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+
+``` r
+oco2_nest |> 
+  dplyr::filter(region == "centroeste") |> 
+  dplyr::filter(p_value < 0.05) |> 
+  dplyr::mutate(class = ifelse(beta1 > b1ls,
+                               "fonte",ifelse(beta1 < b1li, "sumidouro", "nulo"))
+                ) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+#> Adding missing grouping variables: `region`
+```
+
+![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+
+``` r
+oco2_nest |> 
+  dplyr::filter(region == "nordeste") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+#> Adding missing grouping variables: `region`
+```
+
+![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+``` r
+oco2_nest |> 
+  dplyr::filter(region == "centroeste") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+#> Adding missing grouping variables: `region`
+```
+
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+
+``` r
+oco2_nest |> 
+  dplyr::filter(region == "sudeste") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+#> Adding missing grouping variables: `region`
+```
+
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+
+``` r
+oco2_nest |> 
+  dplyr::filter(region == "sul") |> 
+  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::select(longitude, latitude, class) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  ggplot2::geom_point()
+#> Adding missing grouping variables: `region`
+```
+
+![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
