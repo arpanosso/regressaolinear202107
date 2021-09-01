@@ -30,7 +30,7 @@ Nesse contexto, a variação de X~CO2~ opode ser modelada por meio da **análise
 
 ## Hipótese e objetivo
 
-A hipótese do projeto é que essa tendência de aumento da concentração atmosférica de CO~2~ pode ser utilizada como um indicativo para a classificação de áreas como fontes e sumidouros de CO~2~ utilizando as estimativas de **β~1~** provenientes da análise de regressão linear simples.
+A hipótese do projeto é que essa tendência de aumento da concentração atmosférica de CO~2~ pode ser utilizada como um indicativo para a classificação de áreas como **fontes** ou **sumidouros** de CO~2~ utilizando as estimativas de **β~1~** provenientes da análise de regressão linear simples.
 
 ## Material e Métodos
 
@@ -109,15 +109,15 @@ summary(mod)
 
 ```{r, warning=FALSE, error=FALSE, message=FALSE}
 b1 <- 7.222e-03
-b1li <- b1 - 1.725e-04 
-b1ls <- b1 + 1.725e-04 
+limite_inferior_b1 <- b1 - 1.725e-04 
+limite_superior_b1 <- b1 + 1.725e-04 
 ```
 
 ```{r}
 broom::augment(mod)
 broom::augment(mod, interval="confidence")
 plot(mod)
-# cooks.distance(mod)
+cooks.distance(mod)
 ```
 
 A próxima operação é selecionarmos na base de dados somente os pontos pertencentes ao território brasileiro. Assim vamos utilizar o pacote `{geobr}` para criarmos o filtro a partir dos polígonos das diferentes regiões do Brasil.
@@ -142,6 +142,17 @@ pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
 pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 ```
 
+```{r}
+# Retirando alguns pontos
+pol_br <- pol_br[pol_br[,1]<=-34,]
+pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
+                              (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
+
+pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
+pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.6) & pol_nordeste[,2]<= -15),]
+
+```
+
 
 Plot de todos os pontos.
 
@@ -163,14 +174,11 @@ oco2_br <- readr::read_rds("data/oco2_br.rds")
 ```
 
 
-
-
 ```{r}
 oco2_nest <- oco2_br |>
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
-                quarter_year = lubridate::make_date(year, quarter, 1)) |>  
-  tidyr::pivot_longer(
+                quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
     starts_with("flag"),
     names_to = "region",
     values_to = "flag"
@@ -185,110 +193,143 @@ oco2_nest <- oco2_br |>
   ) |> 
   dplyr::group_by(region, latitude, longitude) |> 
   tidyr::nest() 
-
-
 ```
 
+Função para construção do gráfico de dispersão
 
 ```{r}
-plot_extractor<- function(df){
-  df |> 
-    ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
-    ggplot2::geom_point()
-}; plot_extractor(oco2_nest$data[[1]])
-```
-
-
-```{r}
-beta1_extractor<- function(df){
+linear_reg <- function(df, output="beta1"){
   modelo <- lm(xco2_mean ~ quarter_year, data=df)
   beta_1 <- c(summary(modelo)$coefficients[2])
-  if(is.nan(beta_1)) beta_1 <- 0
-  return(beta_1)
-}; beta1_extractor(oco2_nest$data[[1]])
-
-ep_extractor <- function(df){
-  modelo <- lm(xco2_mean ~ quarter_year, data=df)
-  beta_1 <- summary(modelo)$coefficients[2]
-  if(is.nan(beta_1)){
-    ep <- 0
-  } else {
-    ep <- summary(modelo)$coefficients[2,2]
+  
+  # Definindo o modelo
+  if(output=="beta1"){ 
+    return(beta_1)
   }
-  return(ep)
-}; ep_extractor(oco2_nest$data[[1]])
-
-pvalue_extractor <- function(df){
-  modelo <- lm(xco2_mean ~ quarter_year, data=df)
-  beta_1 <- summary(modelo)$coefficients[2]
-  if(is.nan(beta_1)){
-    p <- 1
-  } else {
-    p <- summary(modelo)$coefficients[2,4]
-    if(is.nan(p)) p <- 1
+  
+  # Salvando o valor P
+  if(output=="p_value"){
+    if(is.nan(beta_1)){
+      beta_1 <- 0
+      p <- 1
+    } else {
+      p <- summary(modelo)$coefficients[2,4]
+      if(is.nan(p)) p <- 1
+    }
+    return(p)
   }
-  return(p)
-}; pvalue_extractor(oco2_nest$data[[3]])
+  # Criando gráfico
+  if(output=="plot"){
+    plot <- df |> 
+      ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
+      ggplot2::geom_point() +
+      ggplot2::theme_bw()
+    return(plot)
+  }
+  if(output=="hist"){
+    hist <- df |> 
+      ggplot2::ggplot(ggplot2::aes(x=xco2_mean, y=..density..)) +
+      ggplot2::geom_histogram(bins=10, color="black", fill="lightgray") +
+      ggplot2::geom_density()+
+      ggplot2::theme_bw()
+    return(hist)
+  }
+}; 
+linear_reg(oco2_nest$data[[3]],"beta1")
+linear_reg(oco2_nest$data[[3]],"p_value")
+linear_reg(oco2_nest$data[[3]],"plot")
+linear_reg(oco2_nest$data[[3]],"hist")
+```
 
-for(i in 100:200){
-  print(paste0(i, ": ",pvalue_extractor(oco2_nest$data[[i]])))
-}
 
+```{r}
 oco2_nest <- oco2_nest |> 
   dplyr::mutate( 
-    beta1 = purrr::map(data,beta1_extractor),
-    dpb = purrr::map(data,ep_extractor),
-    p_value = purrr::map(data,pvalue_extractor),
-    plots = purrr::map(data,plot_extractor)
+    beta_line = purrr::map(data,linear_reg, output="beta1"),
+    p_value = purrr::map(data,linear_reg, output="p_value"),
+    plot = purrr::map(data,linear_reg, output="plot"),
+    hist = purrr::map(data,linear_reg, output="hist")
   )
-
-oco2_nest$plots[[13]]
 ```
 
 ```{r}
 oco2_nest |> 
-  dplyr::filter(region == "centroeste") |> 
+  dplyr::filter(region == "norte") |> 
   dplyr::filter(p_value < 0.05) |> 
-  dplyr::mutate(class = ifelse(beta1 > b1ls,
-                               "fonte",ifelse(beta1 < b1li, "sumidouro", "nulo"))
+  dplyr::mutate(class = ifelse(beta_line > limite_superior_b1,
+                               "fonte",ifelse(beta_line < limite_inferior_b1, "sumidouro", "nulo"))
                 ) |> 
   dplyr::select(longitude, latitude, class) |> 
   ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
   ggplot2::geom_point()
 ```
 
+
 ```{r}
-oco2_nest |> 
-  dplyr::filter(region == "nordeste") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+def_pol <- function(x, y, pol){
+  as.logical(sp::point.in.polygon(point.x = x,
+                                  point.y = y,
+                                  pol.x = pol[,1],
+                                  pol.y = pol[,2]))
+}
+```
+
+
+
+```{r}
+oco2_aux <- oco2_nest |> 
+  dplyr::filter(region == "norte") |> 
+  dplyr::filter(p_value < 0.05) |> 
+  tidyr::unnest(cols = c(beta_line)) |>
+  dplyr::ungroup() |>
+  dplyr::select(longitude, latitude, beta_line)
+```
+
+```{r}
+oco2_aux |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude) ) + 
   ggplot2::geom_point()
 ```
 
 ```{r}
-oco2_nest |> 
-  dplyr::filter(region == "centroeste") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
-  ggplot2::geom_point()
+sp::coordinates(oco2_aux)=~ longitude+latitude  
+form<-beta_line~1
+```
+
+
+```{r, warning=FALSE}
+vari_co2_norte<-gstat::variogram(form, data=oco2_aux)
+m_xco2 <- gstat::fit.variogram(vari_co2_norte,gstat::vgm(1,"Sph",5,0))
+plot(vari_co2_norte,model=m_xco2, col=1,pl=F,pch=16)
 ```
 
 ```{r}
-oco2_nest |> 
-  dplyr::filter(region == "sudeste") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
-  ggplot2::geom_point()
+x<-oco2_aux$longitude
+y<-oco2_aux$latitude
+dis <- 0.5 #Distância entre pontos
+grid <- expand.grid(X=seq(min(x),max(x),dis), Y=seq(min(y),max(y),dis))
+sp::gridded(grid) = ~ X + Y
 ```
 
 ```{r}
-oco2_nest |> 
-  dplyr::filter(region == "sul") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
-  ggplot2::geom_point()
+ko_oco2_norte<-gstat::krige(formula=form, oco2_aux, grid, model=m_xco2, 
+    block=c(0,0),
+    nsim=0,
+    na.action=na.pass,
+    debug.level=-1,  
+    )
 ```
+
+
+```{r}
+tibble::as.tibble(ko_oco2_norte) |> 
+  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
+  dplyr::filter(flag_norte) |> 
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
+  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="β1") +
+  ggplot2::theme_bw()
+```
+

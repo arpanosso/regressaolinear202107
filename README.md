@@ -52,9 +52,9 @@ mudanças climáticas globais.
 
 A hipótese do projeto é que essa tendência de aumento da concentração
 atmosférica de CO<sub>2</sub> pode ser utilizada como um indicativo para
-a classificação de áreas como fontes e sumidouros de CO<sub>2</sub>
-utilizando as estimativas de **β<sub>1</sub>** provenientes da análise
-de regressão linear simples.
+a classificação de áreas como **fontes** ou **sumidouros** de
+CO<sub>2</sub> utilizando as estimativas de **β<sub>1</sub>**
+provenientes da análise de regressão linear simples.
 
 ## Material e Métodos
 
@@ -189,8 +189,8 @@ summary(mod)
 
 ``` r
 b1 <- 7.222e-03
-b1li <- b1 - 1.725e-04 
-b1ls <- b1 + 1.725e-04 
+limite_inferior_b1 <- b1 - 1.725e-04 
+limite_superior_b1 <- b1 + 1.725e-04 
 ```
 
 ``` r
@@ -230,7 +230,33 @@ plot(mod)
 ![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-4.png)<!-- -->
 
 ``` r
-# cooks.distance(mod)
+cooks.distance(mod)
+#>            1            2            3            4            5            6 
+#> 3.306761e-03 1.452073e-07 2.083849e-02 1.863601e-02 3.003989e-02 5.535714e-02 
+#>            7            8            9           10           11           12 
+#> 9.247953e-02 2.676635e-02 1.601144e-04 1.496711e-02 1.036575e-02 2.443917e-03 
+#>           13           14           15           16           17           18 
+#> 4.311326e-05 4.743080e-03 1.277608e-02 5.780743e-03 7.147417e-04 1.870127e-03 
+#>           19           20           21           22           23           24 
+#> 7.318470e-03 5.177475e-03 2.243399e-02 4.440210e-02 4.585982e-02 3.713656e-02 
+#>           25           26           27           28           29           30 
+#> 1.531725e-02 4.761485e-03 2.957850e-04 1.859131e-05 4.622546e-04 8.100920e-03 
+#>           31           32           33           34           35           36 
+#> 9.713987e-03 4.172204e-03 8.563140e-05 7.242813e-03 9.177655e-03 5.464400e-03 
+#>           37           38           39           40           41           42 
+#> 9.115437e-04 1.317048e-04 4.452653e-03 1.795494e-02 2.240449e-02 9.324799e-03 
+#>           43           44           45           46           47           48 
+#> 4.735168e-03 5.338088e-05 3.524988e-03 1.021000e-02 2.237781e-03 4.381963e-04 
+#>           49           50           51           52           53           54 
+#> 9.456318e-04 5.354851e-03 1.125971e-02 1.895743e-02 3.300285e-02 2.434909e-02 
+#>           55           56           57           58           59           60 
+#> 7.245726e-03 1.396848e-06 1.624264e-02 2.228662e-02 1.054729e-02 8.603384e-03 
+#>           61           62           63           64           65           66 
+#> 1.011768e-02 1.221795e-06 4.807128e-03 2.456181e-02 4.141019e-02 2.881211e-02 
+#>           67           68           69           70           71           72 
+#> 1.415654e-02 8.400066e-04 5.756521e-03 5.312573e-02 1.795348e-02 4.759817e-03 
+#>           73 
+#> 4.538056e-02
 ```
 
 A próxima operação é selecionarmos na base de dados somente os pontos
@@ -260,6 +286,16 @@ pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
 pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 ```
 
+``` r
+# Retirando alguns pontos
+pol_br <- pol_br[pol_br[,1]<=-34,]
+pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
+                              (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
+
+pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
+pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.6) & pol_nordeste[,2]<= -15),]
+```
+
 Plot de todos os pontos.
 
 ``` r
@@ -274,7 +310,7 @@ br |>
              alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
 ``` r
 oco2_br <- readr::read_rds("data/oco2_br.rds")
@@ -284,8 +320,7 @@ oco2_br <- readr::read_rds("data/oco2_br.rds")
 oco2_nest <- oco2_br |>
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
-                quarter_year = lubridate::make_date(year, quarter, 1)) |>  
-  tidyr::pivot_longer(
+                quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
     starts_with("flag"),
     names_to = "region",
     values_to = "flag"
@@ -303,187 +338,78 @@ oco2_nest <- oco2_br |>
 #> `summarise()` has grouped output by 'region', 'longitude', 'latitude'. You can override using the `.groups` argument.
 ```
 
-``` r
-plot_extractor<- function(df){
-  df |> 
-    ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
-    ggplot2::geom_point()
-}; plot_extractor(oco2_nest$data[[1]])
-```
-
-![](README_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+Função para construção do gráfico de dispersão
 
 ``` r
-beta1_extractor<- function(df){
+linear_reg <- function(df, output="beta1"){
   modelo <- lm(xco2_mean ~ quarter_year, data=df)
   beta_1 <- c(summary(modelo)$coefficients[2])
-  if(is.nan(beta_1)) beta_1 <- 0
-  return(beta_1)
-}; beta1_extractor(oco2_nest$data[[1]])
-#> [1] 0.005056673
-
-ep_extractor <- function(df){
-  modelo <- lm(xco2_mean ~ quarter_year, data=df)
-  beta_1 <- summary(modelo)$coefficients[2]
-  if(is.nan(beta_1)){
-    ep <- 0
-  } else {
-    ep <- summary(modelo)$coefficients[2,2]
+  
+  # Definindo o modelo
+  if(output=="beta1"){ 
+    return(beta_1)
   }
-  return(ep)
-}; ep_extractor(oco2_nest$data[[1]])
-#> [1] 0.001523023
-
-pvalue_extractor <- function(df){
-  modelo <- lm(xco2_mean ~ quarter_year, data=df)
-  beta_1 <- summary(modelo)$coefficients[2]
-  if(is.nan(beta_1)){
-    p <- 1
-  } else {
-    p <- summary(modelo)$coefficients[2,4]
-    if(is.nan(p)) p <- 1
+  
+  # Salvando o valor P
+  if(output=="p_value"){
+    if(is.nan(beta_1)){
+      beta_1 <- 0
+      p <- 1
+    } else {
+      p <- summary(modelo)$coefficients[2,4]
+      if(is.nan(p)) p <- 1
+    }
+    return(p)
   }
-  return(p)
-}; pvalue_extractor(oco2_nest$data[[3]])
+  # Criando gráfico
+  if(output=="plot"){
+    plot <- df |> 
+      ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
+      ggplot2::geom_point() +
+      ggplot2::theme_bw()
+    return(plot)
+  }
+  if(output=="hist"){
+    hist <- df |> 
+      ggplot2::ggplot(ggplot2::aes(x=xco2_mean, y=..density..)) +
+      ggplot2::geom_histogram(bins=10, color="black", fill="lightgray") +
+      ggplot2::geom_density()+
+      ggplot2::theme_bw()
+    return(hist)
+  }
+}; 
+linear_reg(oco2_nest$data[[3]],"beta1")
+#> [1] 0.008254694
+linear_reg(oco2_nest$data[[3]],"p_value")
 #> [1] 1.128489e-06
-
-for(i in 100:200){
-  print(paste0(i, ": ",pvalue_extractor(oco2_nest$data[[i]])))
-}
-#> [1] "100: 0.113747451417962"
-#> [1] "101: 0.37265467962619"
-#> [1] "102: 0.436998914019986"
-#> [1] "103: 0.76154670663007"
-#> [1] "104: 1"
-#> [1] "105: 0.0757004417246969"
-#> [1] "106: 0.0160629006719308"
-#> [1] "107: 1"
-#> [1] "108: 0.13848222557524"
-#> [1] "109: 0.132323185594749"
-#> [1] "110: 0.00242693046726438"
-#> [1] "111: 0.0136665180509469"
-#> [1] "112: 5.54753253091103e-05"
-#> [1] "113: 1.48346634908495e-07"
-#> [1] "114: 3.08904119572612e-08"
-#> [1] "115: 9.01033965050494e-08"
-#> [1] "116: 1.12922391812128e-05"
-#> [1] "117: 0.00294991162591553"
-#> [1] "118: 0.00112723289918183"
-#> [1] "119: 0.0785934779596562"
-#> [1] "120: 0.000157666097333164"
-#> [1] "121: 0.000805384962129368"
-#> [1] "122: 0.157498924015466"
-#> [1] "123: 1"
-#> [1] "124: 1"
-#> [1] "125: 0.0995696284314698"
-#> [1] "126: 0.773217185414964"
-#> [1] "127: 0.00409302853025832"
-#> [1] "128: 0.0016975067327622"
-#> [1] "129: 0.0277167378575894"
-#> [1] "130: 0.13218434013465"
-#> [1] "131: 0.556387185559503"
-#> [1] "132: 0.0358053307556141"
-#> [1] "133: 0.00602931537690356"
-#> [1] "134: 0.000192213100489937"
-#> [1] "135: 4.69226801411901e-06"
-#> [1] "136: 3.22620408075559e-09"
-#> [1] "137: 1.25530466788776e-05"
-#> [1] "138: 1.34851368152652e-08"
-#> [1] "139: 5.86890904382252e-10"
-#> [1] "140: 6.87675435655739e-09"
-#> [1] "141: 7.95644727803148e-07"
-#> [1] "142: 1.79620708885998e-05"
-#> [1] "143: 0.0129217831371734"
-#> [1] "144: 0.0640281042323971"
-#> [1] "145: 1"
-#> [1] "146: 1"
-#> [1] "147: 1"
-#> [1] "148: 1"
-#> [1] "149: 1"
-#> [1] "150: 0.0106916058733338"
-#> [1] "151: 1"
-#> [1] "152: 0.0436758042845243"
-#> [1] "153: 0.0467159340685007"
-#> [1] "154: 0.0048507354190377"
-#> [1] "155: 0.00345283611575425"
-#> [1] "156: 0.000673081130234879"
-#> [1] "157: 0.00430454680201759"
-#> [1] "158: 1.20312382575275e-06"
-#> [1] "159: 1.13884517347702e-05"
-#> [1] "160: 3.83119572464955e-06"
-#> [1] "161: 1.60797907844021e-08"
-#> [1] "162: 1.36639308318079e-10"
-#> [1] "163: 4.69782370722617e-09"
-#> [1] "164: 1.44624215615715e-06"
-#> [1] "165: 0.00095131258422156"
-#> [1] "166: 0.022637104986633"
-#> [1] "167: 1"
-#> [1] "168: 1"
-#> [1] "169: 1"
-#> [1] "170: 1"
-#> [1] "171: 1"
-#> [1] "172: 0.0727650376753845"
-#> [1] "173: 9.96015442057944e-05"
-#> [1] "174: 1"
-#> [1] "175: 1"
-#> [1] "176: 1"
-#> [1] "177: 1"
-#> [1] "178: 0.0798481515215461"
-#> [1] "179: 9.90868286821968e-06"
-#> [1] "180: 1.15047192152717e-07"
-#> [1] "181: 6.17667742999987e-10"
-#> [1] "182: 1.22521680819714e-08"
-#> [1] "183: 2.51167153121982e-08"
-#> [1] "184: 5.039088010038e-06"
-#> [1] "185: 3.11599304732984e-05"
-#> [1] "186: 0.00303910193302764"
-#> [1] "187: 0.00232157833613351"
-#> [1] "188: 0.0618289192428814"
-#> [1] "189: 1"
-#> [1] "190: 1"
-#> [1] "191: 1"
-#> [1] "192: 1"
-#> [1] "193: 1"
-#> [1] "194: 1"
-#> [1] "195: 0.043857031030586"
-#> [1] "196: 1"
-#> [1] "197: 1"
-#> [1] "198: 0.0393447420431683"
-#> [1] "199: 0.204116509402739"
-#> [1] "200: 0.0465891428410531"
-
-oco2_nest <- oco2_nest |> 
-  dplyr::mutate( 
-    beta1 = purrr::map(data,beta1_extractor),
-    dpb = purrr::map(data,ep_extractor),
-    p_value = purrr::map(data,pvalue_extractor),
-    plots = purrr::map(data,plot_extractor)
-  )
-
-oco2_nest$plots[[13]]
+linear_reg(oco2_nest$data[[3]],"plot")
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
 
 ``` r
-oco2_nest |> 
-  dplyr::filter(region == "centroeste") |> 
-  dplyr::filter(p_value < 0.05) |> 
-  dplyr::mutate(class = ifelse(beta1 > b1ls,
-                               "fonte",ifelse(beta1 < b1li, "sumidouro", "nulo"))
-                ) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
-  ggplot2::geom_point()
-#> Adding missing grouping variables: `region`
+linear_reg(oco2_nest$data[[3]],"hist")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-14-2.png)<!-- -->
+
+``` r
+oco2_nest <- oco2_nest |> 
+  dplyr::mutate( 
+    beta_line = purrr::map(data,linear_reg, output="beta1"),
+    p_value = purrr::map(data,linear_reg, output="p_value"),
+    plot = purrr::map(data,linear_reg, output="plot"),
+    hist = purrr::map(data,linear_reg, output="hist")
+  )
+```
 
 ``` r
 oco2_nest |> 
-  dplyr::filter(region == "nordeste") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
+  dplyr::filter(region == "norte") |> 
+  dplyr::filter(p_value < 0.05) |> 
+  dplyr::mutate(class = ifelse(beta_line > limite_superior_b1,
+                               "fonte",ifelse(beta_line < limite_inferior_b1, "sumidouro", "nulo"))
+                ) |> 
   dplyr::select(longitude, latitude, class) |> 
   ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
   ggplot2::geom_point()
@@ -493,37 +419,77 @@ oco2_nest |>
 ![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
 
 ``` r
-oco2_nest |> 
-  dplyr::filter(region == "centroeste") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
-  ggplot2::geom_point()
-#> Adding missing grouping variables: `region`
+def_pol <- function(x, y, pol){
+  as.logical(sp::point.in.polygon(point.x = x,
+                                  point.y = y,
+                                  pol.x = pol[,1],
+                                  pol.y = pol[,2]))
+}
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
-
 ``` r
-oco2_nest |> 
-  dplyr::filter(region == "sudeste") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
-  ggplot2::geom_point()
-#> Adding missing grouping variables: `region`
+oco2_aux <- oco2_nest |> 
+  dplyr::filter(region == "norte") |> 
+  dplyr::filter(p_value < 0.05) |> 
+  tidyr::unnest(cols = c(beta_line)) |>
+  dplyr::ungroup() |>
+  dplyr::select(longitude, latitude, beta_line)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
-
 ``` r
-oco2_nest |> 
-  dplyr::filter(region == "sul") |> 
-  dplyr::mutate(class = ifelse(beta1 > 7.222e-03, "fonte", "sumidouro")) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+oco2_aux |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude) ) + 
   ggplot2::geom_point()
-#> Adding missing grouping variables: `region`
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+
+``` r
+sp::coordinates(oco2_aux)=~ longitude+latitude  
+form<-beta_line~1
+```
+
+``` r
+vari_co2_norte<-gstat::variogram(form, data=oco2_aux)
+m_xco2 <- gstat::fit.variogram(vari_co2_norte,gstat::vgm(1,"Sph",5,0))
+#> [1] "a possible solution MIGHT be to scale semivariances and/or distances"
+plot(vari_co2_norte,model=m_xco2, col=1,pl=F,pch=16)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+
+``` r
+x<-oco2_aux$longitude
+y<-oco2_aux$latitude
+dis <- 0.5 #Distância entre pontos
+grid <- expand.grid(X=seq(min(x),max(x),dis), Y=seq(min(y),max(y),dis))
+sp::gridded(grid) = ~ X + Y
+```
+
+``` r
+ko_oco2_norte<-gstat::krige(formula=form, oco2_aux, grid, model=m_xco2, 
+    block=c(0,0),
+    nsim=0,
+    na.action=na.pass,
+    debug.level=-1,  
+    )
+#> [using ordinary kriging]
+#>   0% done  4% done 12% done 20% done 27% done 33% done 41% done 49% done 58% done 66% done 75% done 84% done 94% done100% done
+```
+
+``` r
+tibble::as.tibble(ko_oco2_norte) |> 
+  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
+  dplyr::filter(flag_norte) |> 
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
+  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="β1") +
+  ggplot2::theme_bw()
+#> Warning: `as.tibble()` was deprecated in tibble 2.0.0.
+#> Please use `as_tibble()` instead.
+#> The signature and semantics have changed, see `?as_tibble`.
+```
+
+![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
