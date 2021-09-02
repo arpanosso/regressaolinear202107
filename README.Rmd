@@ -165,16 +165,17 @@ pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.
 Plot de todos os pontos.
 
 ```{r}
-# br |>
-#   ggplot2::ggplot() +
-#   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
-#           size=.15, show.legend = FALSE) +
-#   ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
-#              ggplot2::aes(x=longitude,y=latitude),
-#              shape=3,
-#              col="red",
-#              alpha=0.2)
+ br |>
+   ggplot2::ggplot() +
+   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
+           size=.15, show.legend = FALSE) +
+   ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
+              ggplot2::aes(x=longitude,y=latitude),
+              shape=3,
+              col="red",
+              alpha=0.2)
 ```
+
 Definindo uma função para criar as flags das diferentes regiões e da amazônia legal
 
 ```{r}
@@ -197,21 +198,22 @@ Vamos criar o filtro para os pontos pertencentes ao polígono do Brasil, demais 
 #             flag_sul = def_pol(longitude, latitude, pol_sul),
 #             flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
 #             flag_centroeste = def_pol(longitude, latitude, pol_centroeste)
-#           ) 
+#           )
 # dplyr::glimpse(oco2)
 ```
 
 Pra garantir a reprodutibilidade desse material, vamos salvar/disponibilizar os dados na base `oco2_br_trend.rds`, somente com os pontos dentro do território nacional.
 
 ```{r}
-# readr::write_rds(oco2 |> 
-#                    dplyr::filter(flag_br) |> 
-#                    dplyr::select(-flag_br)
-#                  , "data/oco2_br_trend.rds")
+ # readr::write_rds(oco2 |>
+ #                    dplyr::mutate(flag_br = flag_br | flag_nordeste) |> 
+ #                    dplyr::filter(flag_br) |> 
+ #                    dplyr::select(-flag_br)
+ #                  , "data/oco2_br_trend.rds")
 ```
 
 
-Vamos ler o banco de dados [com a tendência].
+Vamos ler o banco de dados *[com a tendência]*.
 
 ```{r}
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
@@ -222,7 +224,7 @@ Devemos criar a análise para um ano específico, pois a comparação do artigo 
 
 ```{r}
 oco2_nest <- oco2_br_trend |>
-  dplyr::filter(year == 2020) |> 
+  dplyr::filter(year == 2015) |> 
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
                 quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
@@ -321,14 +323,13 @@ oco2_nest <- oco2_nest |>
 
 ```{r, error=FALSE, warning=FALSE, message=FALSE}
 oco2_nest |> 
-  dplyr::filter(region == "norte") |> 
-  #dplyr::filter(p_value < 0.05) |>
+  dplyr::filter(p_value < 0.05) |>
   dplyr::filter(n_obs > 5) |> 
-  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
-                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
-                ) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+  #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
+  #               ) |> 
+  dplyr::select(longitude, latitude, n_obs) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = n_obs)) +
   ggplot2::geom_point()
 ```
 
@@ -336,12 +337,12 @@ oco2_nest |>
 
 ```{r}
 oco2_aux <- oco2_nest |> 
-  dplyr::filter(region == "norte") |> 
+  # dplyr::filter(region == "norte") |> 
   # dplyr::filter(p_value < 0.05) |> 
-  dplyr::filter(n_obs > 5) |> 
-  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
-                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
-                ) |> 
+  dplyr::filter(n_obs > 7) |> 
+  # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+  #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
+                # ) |> 
   tidyr::unnest(cols = c(beta_line, partial)) |>
   dplyr::ungroup() |>
   dplyr::select(longitude, latitude, beta_line, partial)
@@ -352,9 +353,8 @@ oco2_aux <- oco2_aux |>
       dplyr::pull(partial) |>  
       mean() - partial
   )
-```
 
-```{r}
+# Mapeando
 oco2_aux |> 
   ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude) ) + 
   ggplot2::geom_point()
@@ -369,6 +369,8 @@ oco2_aux |>
   ggplot2::geom_density(fill = "red", alpha = .05) +
   ggplot2::theme_bw()
 ```
+
+
 ```{r}
 oco2_aux |> 
   ggplot2::ggplot(ggplot2::aes(x=anomaly, y= ..density..)) +
@@ -406,14 +408,14 @@ plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ```{r}
 x<-oco2_aux$longitude
 y<-oco2_aux$latitude
-dis <- 0.1 #Distância entre pontos
+dis <- .1 #Distância entre pontos
 grid <- expand.grid(X=seq(min(x),max(x),dis), Y=seq(min(y),max(y),dis))
 sp::gridded(grid) = ~ X + Y
 ```
 
 ```{r}
 ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta, 
-    block=c(0,0),
+    block=c(1,1),
     nsim=0,
     na.action=na.pass,
     debug.level=-1,  
@@ -430,8 +432,9 @@ ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
 
 ```{r}
 tibble::as_tibble(ko_beta) |> 
-  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
-  dplyr::filter(flag_norte) |> 
+  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
+                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
+  dplyr::filter(flag_br | flag_nordeste) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
@@ -443,8 +446,9 @@ tibble::as_tibble(ko_beta) |>
 
 ```{r}
 tibble::as_tibble(ko_anom) |> 
-  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
-  dplyr::filter(flag_norte) |> 
+  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
+                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
+  dplyr::filter(flag_br | flag_nordeste) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 

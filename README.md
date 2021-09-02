@@ -357,16 +357,18 @@ pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.
 Plot de todos os pontos.
 
 ``` r
-# br |>
-#   ggplot2::ggplot() +
-#   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
-#           size=.15, show.legend = FALSE) +
-#   ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
-#              ggplot2::aes(x=longitude,y=latitude),
-#              shape=3,
-#              col="red",
-#              alpha=0.2)
+ br |>
+   ggplot2::ggplot() +
+   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
+           size=.15, show.legend = FALSE) +
+   ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
+              ggplot2::aes(x=longitude,y=latitude),
+              shape=3,
+              col="red",
+              alpha=0.2)
 ```
+
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 Definindo uma função para criar as flags das diferentes regiões e da
 amazônia legal
@@ -394,7 +396,7 @@ salvar esses dados para posterior disponibilização.
 #             flag_sul = def_pol(longitude, latitude, pol_sul),
 #             flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
 #             flag_centroeste = def_pol(longitude, latitude, pol_centroeste)
-#           ) 
+#           )
 # dplyr::glimpse(oco2)
 ```
 
@@ -403,13 +405,14 @@ salvar/disponibilizar os dados na base `oco2_br_trend.rds`, somente com
 os pontos dentro do território nacional.
 
 ``` r
-# readr::write_rds(oco2 |> 
-#                    dplyr::filter(flag_br) |> 
-#                    dplyr::select(-flag_br)
-#                  , "data/oco2_br_trend.rds")
+ # readr::write_rds(oco2 |>
+ #                    dplyr::mutate(flag_br = flag_br | flag_nordeste) |> 
+ #                    dplyr::filter(flag_br) |> 
+ #                    dplyr::select(-flag_br)
+ #                  , "data/oco2_br_trend.rds")
 ```
 
-Vamos ler o banco de dados \[com a tendência\].
+Vamos ler o banco de dados *\[com a tendência\]*.
 
 ``` r
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
@@ -420,7 +423,7 @@ artigo será ano a ano.
 
 ``` r
 oco2_nest <- oco2_br_trend |>
-  dplyr::filter(year == 2020) |> 
+  dplyr::filter(year == 2015) |> 
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
                 quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
@@ -522,14 +525,13 @@ oco2_nest <- oco2_nest |>
 
 ``` r
 oco2_nest |> 
-  dplyr::filter(region == "norte") |> 
-  #dplyr::filter(p_value < 0.05) |>
+  dplyr::filter(p_value < 0.05) |>
   dplyr::filter(n_obs > 5) |> 
-  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
-                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
-                ) |> 
-  dplyr::select(longitude, latitude, class) |> 
-  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
+  # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+  #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
+  #               ) |> 
+  dplyr::select(longitude, latitude, n_obs) |> 
+  ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = n_obs)) +
   ggplot2::geom_point()
 ```
 
@@ -537,12 +539,12 @@ oco2_nest |>
 
 ``` r
 oco2_aux <- oco2_nest |> 
-  dplyr::filter(region == "norte") |> 
+  # dplyr::filter(region == "norte") |> 
   # dplyr::filter(p_value < 0.05) |> 
-  dplyr::filter(n_obs > 5) |> 
-  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
-                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
-                ) |> 
+  dplyr::filter(n_obs > 7) |> 
+  # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+  #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
+                # ) |> 
   tidyr::unnest(cols = c(beta_line, partial)) |>
   dplyr::ungroup() |>
   dplyr::select(longitude, latitude, beta_line, partial)
@@ -553,15 +555,14 @@ oco2_aux <- oco2_aux |>
       dplyr::pull(partial) |>  
       mean() - partial
   )
-```
 
-``` r
+# Mapeando
 oco2_aux |> 
   ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude) ) + 
   ggplot2::geom_point()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
 ``` r
 oco2_aux |> 
@@ -573,7 +574,7 @@ oco2_aux |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 ``` r
 oco2_aux |> 
@@ -585,7 +586,7 @@ oco2_aux |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 ``` r
 sp::coordinates(oco2_aux)=~ longitude+latitude  
@@ -602,7 +603,7 @@ m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
 plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
 
 ### Semivariograma para anomalia
 
@@ -612,25 +613,25 @@ m_anom <- gstat::fit.variogram(vari_anom,gstat::vgm(.8,"Sph",9,.2))
 plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
 
 ``` r
 x<-oco2_aux$longitude
 y<-oco2_aux$latitude
-dis <- 0.1 #Distância entre pontos
+dis <- .1 #Distância entre pontos
 grid <- expand.grid(X=seq(min(x),max(x),dis), Y=seq(min(y),max(y),dis))
 sp::gridded(grid) = ~ X + Y
 ```
 
 ``` r
 ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta, 
-    block=c(0,0),
+    block=c(1,1),
     nsim=0,
     na.action=na.pass,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   3% done  7% done 12% done 16% done 22% done 33% done 44% done 56% done 70% done 80% done 92% done100% done
+#>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
 
 ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom, 
     block=c(0,0),
@@ -639,13 +640,14 @@ ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>  12% done 23% done 30% done 35% done 41% done 52% done 63% done 72% done 81% done 86% done 96% done100% done
+#>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
 ```
 
 ``` r
 tibble::as_tibble(ko_beta) |> 
-  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
-  dplyr::filter(flag_norte) |> 
+  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
+                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
+  dplyr::filter(flag_br | flag_nordeste) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
@@ -654,12 +656,13 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_anom) |> 
-  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
-  dplyr::filter(flag_norte) |> 
+  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
+                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
+  dplyr::filter(flag_br | flag_nordeste) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
@@ -668,4 +671,4 @@ tibble::as_tibble(ko_anom) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
