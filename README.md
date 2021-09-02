@@ -133,6 +133,7 @@ oco2<-oco2 |>
            year = lubridate::year(data),
            month = lubridate::month(data),
            day = lubridate::day(data),
+           dia = difftime(data,"2014-01-09", units = "days"),
            day_week = lubridate::wday(data),
            month_year = lubridate::make_date(year, month, 1) )
 ```
@@ -141,14 +142,15 @@ Existe uma tendência de aumento monotônica mundial da concentração de
 CO<sub>2</sub> na atmosfera, assim, ela deve ser modelada para obtermos
 **β<sub>1</sub>** para ser considerado o padrão para comparação às
 tendências regionais. Devido à periodicidade de retorno do satélite em
-um ponto (ao redor de 16 dias) os dados serão agrupados pelo mês dentro
-de um determinado ano.
+um ponto (ao redor de 16 dias) os dados devem ser agrupados pelo mês
+dentro de um determinado ano.
 
 ``` r
 oco2 |> 
-  dplyr::group_by(month_year) |> 
+  dplyr::filter(year == 2015) |> 
+  dplyr::group_by(dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |> 
-  ggplot2::ggplot(ggplot2::aes(x=month_year,y=xco2_mean )) +
+  ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean )) +
   ggplot2::geom_point(shape=21,color="black",fill="gray") +
   ggplot2::geom_line(color="red") +
   ggplot2::geom_smooth(method = "lm") +
@@ -163,100 +165,150 @@ Para ajustar o modelo linear, usamos `lm()`.
 
 ``` r
 oco2_aux <- oco2 |> 
-  dplyr::group_by(month_year) |> 
+  dplyr::filter(year == 2015) |>
+  dplyr::group_by(dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE))
-mod <- lm(xco2_mean ~ month_year, data = oco2_aux)
-summary(mod)
-#> 
-#> Call:
-#> lm(formula = xco2_mean ~ month_year, data = oco2_aux)
-#> 
-#> Residuals:
-#>      Min       1Q   Median       3Q      Max 
-#> -1.95575 -0.76668  0.08538  0.72116  2.02737 
-#> 
-#> Coefficients:
-#>              Estimate Std. Error t value Pr(>|t|)    
-#> (Intercept) 2.748e+02  3.008e+00   91.34   <2e-16 ***
-#> month_year  7.222e-03  1.725e-04   41.86   <2e-16 ***
-#> ---
-#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-#> 
-#> Residual standard error: 0.9648 on 71 degrees of freedom
-#> Multiple R-squared:  0.9611, Adjusted R-squared:  0.9605 
-#> F-statistic:  1752 on 1 and 71 DF,  p-value: < 2.2e-16
+mod <- lm(xco2_mean ~ dia, data = oco2_aux)
+br <- mod$coefficients[2] # beta regional
+ep <- summary(mod)$coefficients[2,2] # erro padrão
+ # limite inferior do Beta regional
+limite_inferior_beta_regional <- br - ep
+
+# limite superior do Beta regional
+limite_superior_beta_regional <- br + ep
 ```
 
-``` r
-b1 <- 7.222e-03
-limite_inferior_b1 <- b1 - 1.725e-04 
-limite_superior_b1 <- b1 + 1.725e-04 
-```
+Vamos olhar o diagnóstico da análise.
 
 ``` r
-broom::augment(mod)
-#> # A tibble: 73 x 8
-#>    xco2_mean month_year .fitted   .resid   .hat .sigma     .cooksd .std.resid
-#>        <dbl> <date>       <dbl>    <dbl>  <dbl>  <dbl>       <dbl>      <dbl>
-#>  1      393. 2014-09-01    393.  0.322   0.0532  0.971 0.00331        0.343  
-#>  2      393. 2014-10-01    393.  0.00218 0.0511  0.972 0.000000145    0.00232
-#>  3      392. 2014-11-01    393. -0.847   0.0490  0.966 0.0208        -0.900  
-#>  4      392. 2014-12-01    393. -0.819   0.0470  0.967 0.0186        -0.870  
-#>  5      392. 2015-01-01    393. -1.06    0.0450  0.963 0.0300        -1.13   
-#>  6      392. 2015-02-01    394. -1.48    0.0431  0.955 0.0554        -1.57   
-#>  7      392. 2015-03-01    394. -1.96    0.0414  0.942 0.0925        -2.07   
-#>  8      393. 2015-04-01    394. -1.08    0.0396  0.963 0.0268        -1.14   
-#>  9      394. 2015-05-01    394.  0.0854  0.0379  0.972 0.000160       0.0902 
-#> 10      395. 2015-06-01    395.  0.846   0.0362  0.966 0.0150         0.893  
-#> # ... with 63 more rows
 broom::augment(mod, interval="confidence")
-#> # A tibble: 73 x 10
-#>    xco2_mean month_year .fitted .lower .upper   .resid   .hat .sigma     .cooksd
-#>        <dbl> <date>       <dbl>  <dbl>  <dbl>    <dbl>  <dbl>  <dbl>       <dbl>
-#>  1      393. 2014-09-01    393.   392.   393.  0.322   0.0532  0.971 0.00331    
-#>  2      393. 2014-10-01    393.   392.   393.  0.00218 0.0511  0.972 0.000000145
-#>  3      392. 2014-11-01    393.   393.   393. -0.847   0.0490  0.966 0.0208     
-#>  4      392. 2014-12-01    393.   393.   394. -0.819   0.0470  0.967 0.0186     
-#>  5      392. 2015-01-01    393.   393.   394. -1.06    0.0450  0.963 0.0300     
-#>  6      392. 2015-02-01    394.   393.   394. -1.48    0.0431  0.955 0.0554     
-#>  7      392. 2015-03-01    394.   394.   394. -1.96    0.0414  0.942 0.0925     
-#>  8      393. 2015-04-01    394.   394.   395. -1.08    0.0396  0.963 0.0268     
-#>  9      394. 2015-05-01    394.   394.   395.  0.0854  0.0379  0.972 0.000160   
-#> 10      395. 2015-06-01    395.   394.   395.  0.846   0.0362  0.966 0.0150     
-#> # ... with 63 more rows, and 1 more variable: .std.resid <dbl>
+#> # A tibble: 317 x 10
+#>    xco2_mean dia   .fitted .lower .upper .resid   .hat .sigma .cooksd .std.resid
+#>        <dbl> <drt>   <dbl>  <dbl>  <dbl>  <dbl>  <dbl>  <dbl>   <dbl>      <dbl>
+#>  1      391. 357.~    392.   392.   392. -0.812 0.0134   1.22 3.06e-3     -0.672
+#>  2      393. 358.~    392.   392.   392.  1.29  0.0133   1.22 7.60e-3      1.06 
+#>  3      393. 359.~    392.   392.   392.  1.00  0.0131   1.22 4.58e-3      0.829
+#>  4      393. 360.~    392.   392.   392.  0.854 0.0130   1.22 3.29e-3      0.706
+#>  5      392. 361.~    392.   392.   392.  0.204 0.0129   1.22 1.86e-4      0.168
+#>  6      392. 366.~    392.   392.   392. -0.389 0.0124   1.22 6.50e-4     -0.322
+#>  7      393. 367.~    392.   392.   392.  0.573 0.0123   1.22 1.40e-3      0.473
+#>  8      393. 368.~    392.   392.   392.  0.879 0.0122   1.22 3.26e-3      0.726
+#>  9      392. 369.~    392.   392.   392.  0.352 0.0121   1.22 5.19e-4      0.291
+#> 10      393. 370.~    392.   392.   392.  1.19  0.0120   1.22 5.89e-3      0.985
+#> # ... with 307 more rows
 plot(mod)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-4.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-4.png)<!-- -->
 
 ``` r
 cooks.distance(mod)
 #>            1            2            3            4            5            6 
-#> 3.306761e-03 1.452073e-07 2.083849e-02 1.863601e-02 3.003989e-02 5.535714e-02 
+#> 3.055247e-03 7.597057e-03 4.580254e-03 3.292568e-03 1.859488e-04 6.499081e-04 
 #>            7            8            9           10           11           12 
-#> 9.247953e-02 2.676635e-02 1.601144e-04 1.496711e-02 1.036575e-02 2.443917e-03 
+#> 1.395253e-03 3.256227e-03 5.185250e-04 5.886842e-03 3.603522e-06 5.516671e-04 
 #>           13           14           15           16           17           18 
-#> 4.311326e-05 4.743080e-03 1.277608e-02 5.780743e-03 7.147417e-04 1.870127e-03 
+#> 8.850543e-04 2.806128e-03 1.350571e-03 1.352814e-06 6.925387e-04 3.456922e-03 
 #>           19           20           21           22           23           24 
-#> 7.318470e-03 5.177475e-03 2.243399e-02 4.440210e-02 4.585982e-02 3.713656e-02 
+#> 2.092351e-03 7.621595e-04 1.395225e-02 2.648997e-03 2.675939e-04 2.984946e-06 
 #>           25           26           27           28           29           30 
-#> 1.531725e-02 4.761485e-03 2.957850e-04 1.859131e-05 4.622546e-04 8.100920e-03 
+#> 1.563528e-03 4.901811e-04 1.995668e-03 9.084349e-03 5.843687e-03 2.077896e-03 
 #>           31           32           33           34           35           36 
-#> 9.713987e-03 4.172204e-03 8.563140e-05 7.242813e-03 9.177655e-03 5.464400e-03 
+#> 1.760198e-03 3.571221e-03 9.101033e-03 3.812346e-04 8.390584e-03 2.005749e-04 
 #>           37           38           39           40           41           42 
-#> 9.115437e-04 1.317048e-04 4.452653e-03 1.795494e-02 2.240449e-02 9.324799e-03 
+#> 3.926647e-03 5.876160e-03 1.352124e-02 1.498654e-02 7.068567e-03 1.146305e-03 
 #>           43           44           45           46           47           48 
-#> 4.735168e-03 5.338088e-05 3.524988e-03 1.021000e-02 2.237781e-03 4.381963e-04 
+#> 1.888846e-02 2.555641e-04 5.158430e-03 1.940192e-04 2.861215e-02 3.983845e-02 
 #>           49           50           51           52           53           54 
-#> 9.456318e-04 5.354851e-03 1.125971e-02 1.895743e-02 3.300285e-02 2.434909e-02 
+#> 6.439778e-04 7.267364e-03 1.766793e-03 2.623932e-05 5.367644e-06 4.639781e-04 
 #>           55           56           57           58           59           60 
-#> 7.245726e-03 1.396848e-06 1.624264e-02 2.228662e-02 1.054729e-02 8.603384e-03 
+#> 1.132913e-03 1.251678e-02 1.424559e-02 3.885648e-06 2.679798e-04 6.501314e-04 
 #>           61           62           63           64           65           66 
-#> 1.011768e-02 1.221795e-06 4.807128e-03 2.456181e-02 4.141019e-02 2.881211e-02 
+#> 2.208402e-03 2.121131e-04 3.573741e-03 8.706761e-04 9.375163e-04 4.898626e-02 
 #>           67           68           69           70           71           72 
-#> 1.415654e-02 8.400066e-04 5.756521e-03 5.312573e-02 1.795348e-02 4.759817e-03 
-#>           73 
-#> 4.538056e-02
+#> 1.222203e-03 2.448546e-02 7.243650e-07 5.476660e-02 8.777554e-03 1.047693e-03 
+#>           73           74           75           76           77           78 
+#> 9.163364e-04 1.213957e-02 1.756302e-02 7.231332e-04 4.357834e-04 6.094724e-06 
+#>           79           80           81           82           83           84 
+#> 1.932321e-02 7.714448e-04 6.727077e-05 4.733975e-03 8.841795e-07 6.233330e-04 
+#>           85           86           87           88           89           90 
+#> 4.719103e-05 8.251322e-04 4.749394e-03 4.614332e-03 6.587137e-04 8.577621e-06 
+#>           91           92           93           94           95           96 
+#> 9.731794e-04 7.944171e-05 8.122349e-05 2.038396e-03 2.016680e-03 2.129724e-04 
+#>           97           98           99          100          101          102 
+#> 1.119951e-06 1.483962e-04 7.735784e-05 1.010943e-04 2.697623e-03 8.782719e-05 
+#>          103          104          105          106          107          108 
+#> 1.094433e-04 1.803959e-04 1.683447e-03 1.075276e-04 3.332941e-03 2.553531e-05 
+#>          109          110          111          112          113          114 
+#> 1.666449e-05 1.734787e-03 2.074535e-03 5.185004e-03 1.804371e-03 5.281733e-03 
+#>          115          116          117          118          119          120 
+#> 1.827251e-03 2.530600e-03 3.833097e-04 8.532830e-04 8.289624e-04 1.800869e-03 
+#>          121          122          123          124          125          126 
+#> 8.261726e-04 5.410450e-04 3.386293e-03 7.617568e-03 1.339824e-03 1.323014e-03 
+#>          127          128          129          130          131          132 
+#> 3.150965e-04 6.371985e-03 9.730021e-04 1.999290e-03 1.383460e-03 2.387345e-03 
+#>          133          134          135          136          137          138 
+#> 1.676880e-03 6.818059e-04 2.915351e-03 4.782992e-04 3.015790e-03 2.435112e-04 
+#>          139          140          141          142          143          144 
+#> 1.173490e-03 7.952517e-04 2.726686e-03 4.292316e-03 2.510919e-03 3.847819e-03 
+#>          145          146          147          148          149          150 
+#> 3.328335e-03 3.942858e-03 2.327937e-03 3.486587e-03 3.052312e-03 3.846841e-03 
+#>          151          152          153          154          155          156 
+#> 6.136751e-04 2.179549e-03 1.545625e-03 2.048557e-06 3.243162e-03 7.573242e-05 
+#>          157          158          159          160          161          162 
+#> 2.610463e-03 3.099234e-03 1.494351e-03 3.275413e-03 1.392188e-04 3.305571e-03 
+#>          163          164          165          166          167          168 
+#> 2.411267e-03 5.202507e-04 4.023833e-03 2.633894e-07 3.176671e-03 3.406761e-04 
+#>          169          170          171          172          173          174 
+#> 9.798096e-04 7.062379e-04 9.203146e-06 1.689173e-03 2.030393e-04 3.123383e-03 
+#>          175          176          177          178          179          180 
+#> 3.266551e-04 1.478282e-03 6.243266e-04 8.765316e-04 1.588683e-04 2.017707e-03 
+#>          181          182          183          184          185          186 
+#> 1.545060e-03 4.403041e-05 4.057039e-03 6.459277e-04 4.231227e-04 7.805765e-06 
+#>          187          188          189          190          191          192 
+#> 1.072661e-03 8.872802e-04 1.653733e-04 3.329200e-03 6.823652e-04 1.051280e-03 
+#>          193          194          195          196          197          198 
+#> 1.980442e-05 7.718141e-06 4.839467e-04 1.756631e-04 9.177032e-05 2.073792e-05 
+#>          199          200          201          202          203          204 
+#> 7.124094e-03 4.066240e-04 6.172188e-06 1.078655e-04 1.835665e-03 4.935996e-06 
+#>          205          206          207          208          209          210 
+#> 1.280712e-05 2.268246e-05 1.293692e-03 1.504142e-04 2.547836e-05 2.620210e-05 
+#>          211          212          213          214          215          216 
+#> 1.095968e-07 1.573884e-04 2.438335e-04 2.471376e-06 1.291552e-04 8.870286e-04 
+#>          217          218          219          220          221          222 
+#> 1.961707e-03 2.268347e-04 1.732516e-06 8.410656e-05 2.009838e-04 4.866213e-04 
+#>          223          224          225          226          227          228 
+#> 4.516526e-05 8.259732e-04 1.410293e-03 6.136655e-03 3.234320e-04 7.513052e-05 
+#>          229          230          231          232          233          234 
+#> 4.082083e-04 1.294844e-04 3.179133e-03 2.507150e-03 1.055601e-03 2.887959e-05 
+#>          235          236          237          238          239          240 
+#> 1.996825e-03 7.461275e-05 1.461838e-05 2.616779e-04 3.717024e-03 2.133591e-03 
+#>          241          242          243          244          245          246 
+#> 7.753288e-03 2.918223e-03 8.795129e-07 4.355446e-04 4.210778e-04 1.175078e-04 
+#>          247          248          249          250          251          252 
+#> 5.395151e-04 4.123921e-05 5.564857e-03 9.889962e-05 3.070257e-05 2.451659e-05 
+#>          253          254          255          256          257          258 
+#> 8.146741e-04 1.197111e-04 7.264636e-06 2.163958e-03 6.435351e-05 9.541303e-03 
+#>          259          260          261          262          263          264 
+#> 1.599980e-02 2.724419e-03 1.854510e-03 7.370544e-03 1.287532e-03 3.584743e-03 
+#>          265          266          267          268          269          270 
+#> 2.191274e-03 6.155308e-04 4.255415e-03 6.615302e-04 3.611688e-04 3.615010e-04 
+#>          271          272          273          274          275          276 
+#> 4.825631e-03 2.217225e-02 3.402189e-06 4.926265e-06 1.812464e-05 1.914446e-04 
+#>          277          278          279          280          281          282 
+#> 2.051160e-03 6.859079e-04 3.809780e-03 1.522015e-03 1.664252e-02 7.383826e-03 
+#>          283          284          285          286          287          288 
+#> 2.327033e-03 9.724409e-07 1.515583e-04 2.439975e-03 3.263679e-03 5.762377e-04 
+#>          289          290          291          292          293          294 
+#> 1.220151e-04 5.633927e-04 7.224024e-05 7.610696e-04 2.161567e-05 7.820580e-03 
+#>          295          296          297          298          299          300 
+#> 6.254593e-04 7.875021e-02 1.184216e-03 8.799616e-04 1.085939e-03 2.896817e-04 
+#>          301          302          303          304          305          306 
+#> 5.132459e-03 2.182456e-03 1.423779e-02 9.297009e-04 1.598796e-04 3.991303e-06 
+#>          307          308          309          310          311          312 
+#> 2.487110e-03 3.138805e-03 3.225408e-03 3.021315e-04 2.630219e-03 1.591272e-02 
+#>          313          314          315          316          317 
+#> 1.351446e-04 5.807543e-03 1.264129e-02 7.193662e-05 3.172273e-03
 ```
 
 A próxima operação é selecionarmos na base de dados somente os pontos
@@ -272,18 +324,24 @@ br <- geobr::read_country(showProgress = FALSE)
 #> Using year 2010
 ```
 
-Agora podemos extrair os polígonos
+Agora podemos extrair os polígonos.
 
 ``` r
 ### Polígono Brasil
-pol_br <- br$geom |> purrr::pluck(1) |> as.matrix()
+pol_br <- br$geom |> purrr::pluck(1) |> 
+  as.matrix()
 
 ### Polígonos das Regiões
-pol_norte <- regiao$geom |> purrr::pluck(1) |> as.matrix()
-pol_nordeste <- regiao$geom |> purrr::pluck(2) |> as.matrix()
-pol_sudeste <- regiao$geom |> purrr::pluck(3) |> as.matrix()
-pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
-pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
+pol_norte <- regiao$geom |> purrr::pluck(1) |> 
+  as.matrix()
+pol_nordeste <- regiao$geom |> purrr::pluck(2) |> 
+  as.matrix()
+pol_sudeste <- regiao$geom |> purrr::pluck(3) |> 
+  as.matrix()
+pol_sul <- regiao$geom |> purrr::pluck(4) |> 
+  as.matrix()
+pol_centroeste<- regiao$geom |> purrr::pluck(5) |> 
+  as.matrix()
 ```
 
 ``` r
@@ -310,39 +368,87 @@ br |>
              alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- --> Definindo
+uma função para criar as flags das diferentes regiões e da amazônia
+legal
 
 ``` r
-oco2_br <- readr::read_rds("data/oco2_br.rds")
+def_pol <- function(x, y, pol){
+  as.logical(sp::point.in.polygon(point.x = x,
+                                  point.y = y,
+                                  pol.x = pol[,1],
+                                  pol.y = pol[,2]))
+}
 ```
 
+Vamos criar o filtro para os pontos pertencentes ao polígono do Brasil,
+demais regiões e da amazônia legal. Devemos salientar que esses dados
+estão com a tendência de aumento ao longo do tempo, posteriormete vamos
+salvar esses dados para posterior disponibilização.
+
 ``` r
-oco2_nest <- oco2_br |>
+# oco2 <- oco2 |>
+#           dplyr::mutate(
+#             flag_br = def_pol(longitude, latitude, pol_br),
+#             flag_norte = def_pol(longitude, latitude, pol_norte),
+#             flag_nordeste = def_pol(longitude, latitude, pol_nordeste),
+#             flag_sul = def_pol(longitude, latitude, pol_sul),
+#             flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
+#             flag_centroeste = def_pol(longitude, latitude, pol_centroeste)
+#           ) 
+# dplyr::glimpse(oco2)
+```
+
+Pra garantir a reprodutibilidade desse material, vamos
+salvar/disponibilizar os dados na base `oco2_br_trend.rds`, somente com
+os pontos dentro do território nacional.
+
+``` r
+# readr::write_rds(oco2 |> 
+#                    dplyr::filter(flag_br) |> 
+#                    dplyr::select(-flag_br)
+#                  , "data/oco2_br_trend.rds")
+```
+
+Vamos ler o banco de dados \[com a tendência\].
+
+``` r
+oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
+```
+
+Devemos criar a análise para um ano específico, pois a comparação do
+artigo será ano a ano.
+
+``` r
+oco2_nest <- oco2_br_trend |>
+  dplyr::filter(year == 2016) |> 
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
                 quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
     starts_with("flag"),
     names_to = "region",
-    values_to = "flag"
+    values_to = "flag",
   ) |> 
   dplyr::filter(flag) |> 
   dplyr::mutate(region = stringr::str_remove(region,"flag_")) |> 
-  dplyr::group_by(region, longitude, latitude, quarter_year) |> 
+  dplyr::group_by(region, longitude, latitude, dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |> 
   dplyr::mutate(
     regi = region,
-    id_time = quarter_year
+    id_time = dia
   ) |> 
   dplyr::group_by(region, latitude, longitude) |> 
   tidyr::nest() 
 #> `summarise()` has grouped output by 'region', 'longitude', 'latitude'. You can override using the `.groups` argument.
 ```
 
-Função para construção do gráfico de dispersão
+Função para construção da análise de regressão linear para cada pixel, e
+diagnósticos.
 
 ``` r
 linear_reg <- function(df, output="beta1"){
-  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  # Modelo para cada pixel
+  modelo <- lm(xco2_mean ~ dia, data=df)
   beta_1 <- c(summary(modelo)$coefficients[2])
   
   # Definindo o modelo
@@ -355,16 +461,17 @@ linear_reg <- function(df, output="beta1"){
     if(is.nan(beta_1)){
       beta_1 <- 0
       p <- 1
-    } else {
+    }else{
       p <- summary(modelo)$coefficients[2,4]
       if(is.nan(p)) p <- 1
     }
     return(p)
   }
+  
   # Criando gráfico
   if(output=="plot"){
     plot <- df |> 
-      ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
+      ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean)) +
       ggplot2::geom_point() +
       ggplot2::theme_bw()
     return(plot)
@@ -377,63 +484,78 @@ linear_reg <- function(df, output="beta1"){
       ggplot2::theme_bw()
     return(hist)
   }
-}; 
-linear_reg(oco2_nest$data[[3]],"beta1")
-#> [1] 0.008254694
-linear_reg(oco2_nest$data[[3]],"p_value")
-#> [1] 1.128489e-06
-linear_reg(oco2_nest$data[[3]],"plot")
+  
+  # Anomalia é o Xco2 do regional menos o Xco2 do pixel, melhor é o contrário.
+  if(output == "partial"){
+     partial <- df |> 
+       dplyr::summarise(xco2 = mean(xco2_mean), na.mr=TRUE) |> 
+       dplyr::pull(xco2)
+     return(partial)
+  }
+  
+    if(output == "n"){
+     return(nrow(df))
+   }
+}
+linear_reg(oco2_nest$data[[5]],"n")
+#> [1] 5
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
-
-``` r
-linear_reg(oco2_nest$data[[3]],"hist")
-```
-
-![](README_files/figure-gfm/unnamed-chunk-14-2.png)<!-- -->
+Vamos aplicar a função para cada ponto de amostragem do satélite
+(pixel).
 
 ``` r
 oco2_nest <- oco2_nest |> 
   dplyr::mutate( 
     beta_line = purrr::map(data,linear_reg, output="beta1"),
     p_value = purrr::map(data,linear_reg, output="p_value"),
-    plot = purrr::map(data,linear_reg, output="plot"),
-    hist = purrr::map(data,linear_reg, output="hist")
+    partial = purrr::map(data,linear_reg, output="partial"),
+    n_obs = purrr::map(data,linear_reg, output="n")
+    #plot = purrr::map(data,linear_reg, output="plot"),
+    #hist = purrr::map(data,linear_reg, output="hist")
   )
+```
+
+``` r
+# oco2_nest |> 
+#   dplyr::filter(region == "norte") |> 
+#   dplyr::filter(p_value < 0.05, beta_line < 0) |> 
+#   dplyr::pull(plot)
 ```
 
 ``` r
 oco2_nest |> 
   dplyr::filter(region == "norte") |> 
-  dplyr::filter(p_value < 0.05) |> 
-  dplyr::mutate(class = ifelse(beta_line > limite_superior_b1,
-                               "fonte",ifelse(beta_line < limite_inferior_b1, "sumidouro", "nulo"))
+  #dplyr::filter(p_value < 0.05) |>
+  dplyr::filter(n_obs > 5) |> 
+  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
                 ) |> 
   dplyr::select(longitude, latitude, class) |> 
   ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
   ggplot2::geom_point()
-#> Adding missing grouping variables: `region`
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
-
-``` r
-def_pol <- function(x, y, pol){
-  as.logical(sp::point.in.polygon(point.x = x,
-                                  point.y = y,
-                                  pol.x = pol[,1],
-                                  pol.y = pol[,2]))
-}
-```
+![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
 
 ``` r
 oco2_aux <- oco2_nest |> 
   dplyr::filter(region == "norte") |> 
-  dplyr::filter(p_value < 0.05) |> 
-  tidyr::unnest(cols = c(beta_line)) |>
+  # dplyr::filter(p_value < 0.05) |> 
+  dplyr::filter(n_obs > 5) |> 
+  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
+                ) |> 
+  tidyr::unnest(cols = c(beta_line, partial)) |>
   dplyr::ungroup() |>
-  dplyr::select(longitude, latitude, beta_line)
+  dplyr::select(longitude, latitude, beta_line, partial)
+
+oco2_aux <- oco2_aux |> 
+  dplyr::mutate(
+    anomaly = partial - oco2_aux |> 
+      dplyr::pull(partial) |>  
+      mean()
+  )
 ```
 
 ``` r
@@ -442,54 +564,88 @@ oco2_aux |>
   ggplot2::geom_point()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 ``` r
 sp::coordinates(oco2_aux)=~ longitude+latitude  
-form<-beta_line~1
+form_beta<-beta_line~1
+form_anom<-anomaly~1
 ```
+
+### Semivariograma para beta
 
 ``` r
-vari_co2_norte<-gstat::variogram(form, data=oco2_aux)
-m_xco2 <- gstat::fit.variogram(vari_co2_norte,gstat::vgm(1,"Sph",5,0))
-#> [1] "a possible solution MIGHT be to scale semivariances and/or distances"
-plot(vari_co2_norte,model=m_xco2, col=1,pl=F,pch=16)
+vari_beta <- gstat::variogram(form_beta, data=oco2_aux)
+m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
+                               gstat::vgm(1, "Sph", 300, 1))
+plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+
+### Semivariograma para anomalia
+
+``` r
+vari_anom<-gstat::variogram(form_anom, data=oco2_aux)
+m_anom <- gstat::fit.variogram(vari_anom,gstat::vgm(.8,"Sph",9,.2))
+plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
 
 ``` r
 x<-oco2_aux$longitude
 y<-oco2_aux$latitude
-dis <- 0.5 #Distância entre pontos
+dis <- 0.1 #Distância entre pontos
 grid <- expand.grid(X=seq(min(x),max(x),dis), Y=seq(min(y),max(y),dis))
 sp::gridded(grid) = ~ X + Y
 ```
 
 ``` r
-ko_oco2_norte<-gstat::krige(formula=form, oco2_aux, grid, model=m_xco2, 
+ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta, 
     block=c(0,0),
     nsim=0,
     na.action=na.pass,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   0% done  4% done 12% done 20% done 27% done 33% done 41% done 49% done 58% done 66% done 75% done 84% done 94% done100% done
+#>   4% done 10% done 16% done 22% done 28% done 35% done 41% done 46% done 53% done 60% done 67% done 74% done 82% done 89% done 96% done100% done
+
+
+ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom, 
+    block=c(0,0),
+    nsim=0,
+    na.action=na.pass,
+    debug.level=-1,  
+    )
+#> [using ordinary kriging]
+#>   0% done  7% done 14% done 22% done 29% done 36% done 44% done 51% done 59% done 65% done 69% done 75% done 81% done 86% done 90% done 93% done 98% done100% done
 ```
 
 ``` r
-tibble::as.tibble(ko_oco2_norte) |> 
+tibble::as_tibble(ko_beta) |> 
   dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
   dplyr::filter(flag_norte) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
   ggplot2::coord_equal()+
-  ggplot2::labs(fill="β1") +
+  ggplot2::labs(fill="βpixel") +
   ggplot2::theme_bw()
-#> Warning: `as.tibble()` was deprecated in tibble 2.0.0.
-#> Please use `as_tibble()` instead.
-#> The signature and semantics have changed, see `?as_tibble`.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+
+``` r
+tibble::as_tibble(ko_anom) |> 
+  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
+  dplyr::filter(flag_norte) |> 
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
+  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="Anomaly") +
+  ggplot2::theme_bw()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->

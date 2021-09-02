@@ -76,18 +76,20 @@ oco2<-oco2 |>
            year = lubridate::year(data),
            month = lubridate::month(data),
            day = lubridate::day(data),
+           dia = difftime(data,"2014-01-09", units = "days"),
            day_week = lubridate::wday(data),
            month_year = lubridate::make_date(year, month, 1) )
 ```
 
-Existe uma tendência de aumento monotônica mundial da concentração de CO~2~ na atmosfera, assim, ela deve ser modelada para obtermos **β~1~** para ser considerado o padrão para comparação às tendências  regionais. Devido à periodicidade de retorno do satélite em um ponto (ao redor de 16 dias) os dados serão agrupados pelo mês dentro de um determinado ano.
+Existe uma tendência de aumento monotônica mundial da concentração de CO~2~ na atmosfera, assim, ela deve ser modelada para obtermos **β~1~** para ser considerado o padrão para comparação às tendências  regionais. Devido à periodicidade de retorno do satélite em um ponto (ao redor de 16 dias) os dados devem ser agrupados pelo mês dentro de um determinado ano.
 
 
 ```{r, warning=FALSE, error=FALSE, message=FALSE}
 oco2 |> 
-  dplyr::group_by(month_year) |> 
+  dplyr::filter(year == 2015) |> 
+  dplyr::group_by(dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |> 
-  ggplot2::ggplot(ggplot2::aes(x=month_year,y=xco2_mean )) +
+  ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean )) +
   ggplot2::geom_point(shape=21,color="black",fill="gray") +
   ggplot2::geom_line(color="red") +
   ggplot2::geom_smooth(method = "lm") +
@@ -100,21 +102,22 @@ Para ajustar o modelo linear, usamos `lm()`.
 
 ```{r, warning=FALSE, error=FALSE, message=FALSE}
 oco2_aux <- oco2 |> 
-  dplyr::group_by(month_year) |> 
+  dplyr::filter(year == 2015) |>
+  dplyr::group_by(dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE))
-mod <- lm(xco2_mean ~ month_year, data = oco2_aux)
-summary(mod)
+mod <- lm(xco2_mean ~ dia, data = oco2_aux)
+br <- mod$coefficients[2] # beta regional
+ep <- summary(mod)$coefficients[2,2] # erro padrão
+ # limite inferior do Beta regional
+limite_inferior_beta_regional <- br - ep
+
+# limite superior do Beta regional
+limite_superior_beta_regional <- br + ep
 ```
 
-
-```{r, warning=FALSE, error=FALSE, message=FALSE}
-b1 <- 7.222e-03
-limite_inferior_b1 <- b1 - 1.725e-04 
-limite_superior_b1 <- b1 + 1.725e-04 
-```
+Vamos olhar o diagnóstico da análise.
 
 ```{r}
-broom::augment(mod)
 broom::augment(mod, interval="confidence")
 plot(mod)
 cooks.distance(mod)
@@ -127,19 +130,25 @@ regiao <- geobr::read_region(showProgress = FALSE)
 br <- geobr::read_country(showProgress = FALSE)
 ```
 
-Agora podemos extrair os polígonos
+Agora podemos extrair os polígonos.
 
 
 ```{r}
 ### Polígono Brasil
-pol_br <- br$geom |> purrr::pluck(1) |> as.matrix()
+pol_br <- br$geom |> purrr::pluck(1) |> 
+  as.matrix()
 
 ### Polígonos das Regiões
-pol_norte <- regiao$geom |> purrr::pluck(1) |> as.matrix()
-pol_nordeste <- regiao$geom |> purrr::pluck(2) |> as.matrix()
-pol_sudeste <- regiao$geom |> purrr::pluck(3) |> as.matrix()
-pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
-pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
+pol_norte <- regiao$geom |> purrr::pluck(1) |> 
+  as.matrix()
+pol_nordeste <- regiao$geom |> purrr::pluck(2) |> 
+  as.matrix()
+pol_sudeste <- regiao$geom |> purrr::pluck(3) |> 
+  as.matrix()
+pol_sul <- regiao$geom |> purrr::pluck(4) |> 
+  as.matrix()
+pol_centroeste<- regiao$geom |> purrr::pluck(5) |> 
+  as.matrix()
 ```
 
 ```{r}
@@ -150,7 +159,6 @@ pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
 
 pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
 pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.6) & pol_nordeste[,2]<= -15),]
-
 ```
 
 
@@ -167,39 +175,79 @@ br |>
              col="red",
              alpha=0.2)
 ```
-
+Definindo uma função para criar as flags das diferentes regiões e da amazônia legal
 
 ```{r}
-oco2_br <- readr::read_rds("data/oco2_br.rds")
+def_pol <- function(x, y, pol){
+  as.logical(sp::point.in.polygon(point.x = x,
+                                  point.y = y,
+                                  pol.x = pol[,1],
+                                  pol.y = pol[,2]))
+}
+```
+
+Vamos criar o filtro para os pontos pertencentes ao polígono do Brasil, demais regiões e da amazônia legal. Devemos salientar que esses dados estão com a tendência de aumento ao longo do tempo, posteriormete vamos salvar esses dados para posterior disponibilização.
+
+```{r, eval=FALSE}
+# oco2 <- oco2 |>
+#           dplyr::mutate(
+#             flag_br = def_pol(longitude, latitude, pol_br),
+#             flag_norte = def_pol(longitude, latitude, pol_norte),
+#             flag_nordeste = def_pol(longitude, latitude, pol_nordeste),
+#             flag_sul = def_pol(longitude, latitude, pol_sul),
+#             flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
+#             flag_centroeste = def_pol(longitude, latitude, pol_centroeste)
+#           ) 
+# dplyr::glimpse(oco2)
+```
+
+Pra garantir a reprodutibilidade desse material, vamos salvar/disponibilizar os dados na base `oco2_br_trend.rds`, somente com os pontos dentro do território nacional.
+
+```{r}
+# readr::write_rds(oco2 |> 
+#                    dplyr::filter(flag_br) |> 
+#                    dplyr::select(-flag_br)
+#                  , "data/oco2_br_trend.rds")
 ```
 
 
+Vamos ler o banco de dados [com a tendência].
+
 ```{r}
-oco2_nest <- oco2_br |>
+oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
+```
+
+
+Devemos criar a análise para um ano específico, pois a comparação do artigo será ano a ano.
+
+```{r}
+oco2_nest <- oco2_br_trend |>
+  dplyr::filter(year == 2016) |> 
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
                 quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
     starts_with("flag"),
     names_to = "region",
-    values_to = "flag"
+    values_to = "flag",
   ) |> 
   dplyr::filter(flag) |> 
   dplyr::mutate(region = stringr::str_remove(region,"flag_")) |> 
-  dplyr::group_by(region, longitude, latitude, quarter_year) |> 
+  dplyr::group_by(region, longitude, latitude, dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |> 
   dplyr::mutate(
     regi = region,
-    id_time = quarter_year
+    id_time = dia
   ) |> 
   dplyr::group_by(region, latitude, longitude) |> 
   tidyr::nest() 
 ```
 
-Função para construção do gráfico de dispersão
+Função para construção da análise de regressão linear para cada pixel, e diagnósticos.
 
 ```{r}
 linear_reg <- function(df, output="beta1"){
-  modelo <- lm(xco2_mean ~ quarter_year, data=df)
+  # Modelo para cada pixel
+  modelo <- lm(xco2_mean ~ dia, data=df)
   beta_1 <- c(summary(modelo)$coefficients[2])
   
   # Definindo o modelo
@@ -212,16 +260,17 @@ linear_reg <- function(df, output="beta1"){
     if(is.nan(beta_1)){
       beta_1 <- 0
       p <- 1
-    } else {
+    }else{
       p <- summary(modelo)$coefficients[2,4]
       if(is.nan(p)) p <- 1
     }
     return(p)
   }
+  
   # Criando gráfico
   if(output=="plot"){
     plot <- df |> 
-      ggplot2::ggplot(ggplot2::aes(x=quarter_year,y=xco2_mean)) +
+      ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean)) +
       ggplot2::geom_point() +
       ggplot2::theme_bw()
     return(plot)
@@ -234,30 +283,50 @@ linear_reg <- function(df, output="beta1"){
       ggplot2::theme_bw()
     return(hist)
   }
-}; 
-linear_reg(oco2_nest$data[[3]],"beta1")
-linear_reg(oco2_nest$data[[3]],"p_value")
-linear_reg(oco2_nest$data[[3]],"plot")
-linear_reg(oco2_nest$data[[3]],"hist")
+  
+  # Anomalia é o Xco2 do regional menos o Xco2 do pixel, melhor é o contrário.
+  if(output == "partial"){
+     partial <- df |> 
+       dplyr::summarise(xco2 = mean(xco2_mean), na.mr=TRUE) |> 
+       dplyr::pull(xco2)
+     return(partial)
+  }
+  
+    if(output == "n"){
+     return(nrow(df))
+   }
+}
+linear_reg(oco2_nest$data[[5]],"n")
 ```
 
+Vamos aplicar a função para cada ponto de amostragem do satélite (pixel).
 
 ```{r}
 oco2_nest <- oco2_nest |> 
   dplyr::mutate( 
     beta_line = purrr::map(data,linear_reg, output="beta1"),
     p_value = purrr::map(data,linear_reg, output="p_value"),
-    plot = purrr::map(data,linear_reg, output="plot"),
-    hist = purrr::map(data,linear_reg, output="hist")
+    partial = purrr::map(data,linear_reg, output="partial"),
+    n_obs = purrr::map(data,linear_reg, output="n")
+    #plot = purrr::map(data,linear_reg, output="plot"),
+    #hist = purrr::map(data,linear_reg, output="hist")
   )
 ```
 
 ```{r}
+# oco2_nest |> 
+#   dplyr::filter(region == "norte") |> 
+#   dplyr::filter(p_value < 0.05, beta_line < 0) |> 
+#   dplyr::pull(plot)
+```
+
+```{r, error=FALSE, warning=FALSE, message=FALSE}
 oco2_nest |> 
   dplyr::filter(region == "norte") |> 
-  dplyr::filter(p_value < 0.05) |> 
-  dplyr::mutate(class = ifelse(beta_line > limite_superior_b1,
-                               "fonte",ifelse(beta_line < limite_inferior_b1, "sumidouro", "nulo"))
+  #dplyr::filter(p_value < 0.05) |>
+  dplyr::filter(n_obs > 5) |> 
+  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
                 ) |> 
   dplyr::select(longitude, latitude, class) |> 
   ggplot2::ggplot(ggplot2::aes(x=longitude, y=latitude, color = class)) +
@@ -265,24 +334,25 @@ oco2_nest |>
 ```
 
 
-```{r}
-def_pol <- function(x, y, pol){
-  as.logical(sp::point.in.polygon(point.x = x,
-                                  point.y = y,
-                                  pol.x = pol[,1],
-                                  pol.y = pol[,2]))
-}
-```
-
-
 
 ```{r}
 oco2_aux <- oco2_nest |> 
   dplyr::filter(region == "norte") |> 
-  dplyr::filter(p_value < 0.05) |> 
-  tidyr::unnest(cols = c(beta_line)) |>
+  # dplyr::filter(p_value < 0.05) |> 
+  dplyr::filter(n_obs > 5) |> 
+  dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
+                               1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
+                ) |> 
+  tidyr::unnest(cols = c(beta_line, partial)) |>
   dplyr::ungroup() |>
-  dplyr::select(longitude, latitude, beta_line)
+  dplyr::select(longitude, latitude, beta_line, partial)
+
+oco2_aux <- oco2_aux |> 
+  dplyr::mutate(
+    anomaly =  oco2_aux |> 
+      dplyr::pull(partial) |>  
+      mean() - partial
+  )
 ```
 
 ```{r}
@@ -293,26 +363,46 @@ oco2_aux |>
 
 ```{r}
 sp::coordinates(oco2_aux)=~ longitude+latitude  
-form<-beta_line~1
+form_beta<-beta_line~1
+form_anom<-anomaly~1
 ```
 
 
+### Semivariograma para beta
+
 ```{r, warning=FALSE}
-vari_co2_norte<-gstat::variogram(form, data=oco2_aux)
-m_xco2 <- gstat::fit.variogram(vari_co2_norte,gstat::vgm(1,"Sph",5,0))
-plot(vari_co2_norte,model=m_xco2, col=1,pl=F,pch=16)
+vari_beta <- gstat::variogram(form_beta, data=oco2_aux)
+m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
+                               gstat::vgm(1, "Sph", 300, 1))
+plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
+```
+
+### Semivariograma para anomalia
+
+```{r, warning=FALSE}
+vari_anom<-gstat::variogram(form_anom, data=oco2_aux)
+m_anom <- gstat::fit.variogram(vari_anom,gstat::vgm(.8,"Sph",9,.2))
+plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ```
 
 ```{r}
 x<-oco2_aux$longitude
 y<-oco2_aux$latitude
-dis <- 0.5 #Distância entre pontos
+dis <- 0.1 #Distância entre pontos
 grid <- expand.grid(X=seq(min(x),max(x),dis), Y=seq(min(y),max(y),dis))
 sp::gridded(grid) = ~ X + Y
 ```
 
 ```{r}
-ko_oco2_norte<-gstat::krige(formula=form, oco2_aux, grid, model=m_xco2, 
+ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta, 
+    block=c(0,0),
+    nsim=0,
+    na.action=na.pass,
+    debug.level=-1,  
+    )
+
+
+ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom, 
     block=c(0,0),
     nsim=0,
     na.action=na.pass,
@@ -322,14 +412,28 @@ ko_oco2_norte<-gstat::krige(formula=form, oco2_aux, grid, model=m_xco2,
 
 
 ```{r}
-tibble::as.tibble(ko_oco2_norte) |> 
+tibble::as_tibble(ko_beta) |> 
   dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
   dplyr::filter(flag_norte) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
   ggplot2::coord_equal()+
-  ggplot2::labs(fill="β1") +
+  ggplot2::labs(fill="βpixel") +
+  ggplot2::theme_bw()
+```
+
+
+
+```{r}
+tibble::as_tibble(ko_anom) |> 
+  dplyr::mutate(flag_norte = def_pol(X,Y,pol_norte)) |> 
+  dplyr::filter(flag_norte) |> 
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
+  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="Anomaly") +
   ggplot2::theme_bw()
 ```
 
