@@ -357,20 +357,19 @@ pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.
 Plot de todos os pontos.
 
 ``` r
-br |>
-  ggplot2::ggplot() +
-  ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
-          size=.15, show.legend = FALSE) +
-  ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
-             ggplot2::aes(x=longitude,y=latitude),
-             shape=3,
-             col="red",
-             alpha=0.2)
+# br |>
+#   ggplot2::ggplot() +
+#   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
+#           size=.15, show.legend = FALSE) +
+#   ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
+#              ggplot2::aes(x=longitude,y=latitude),
+#              shape=3,
+#              col="red",
+#              alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- --> Definindo
-uma função para criar as flags das diferentes regiões e da amazônia
-legal
+Definindo uma função para criar as flags das diferentes regiões e da
+amazônia legal
 
 ``` r
 def_pol <- function(x, y, pol){
@@ -421,7 +420,7 @@ artigo será ano a ano.
 
 ``` r
 oco2_nest <- oco2_br_trend |>
-  dplyr::filter(year == 2016) |> 
+  dplyr::filter(year == 2020) |> 
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
                 quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
@@ -497,8 +496,6 @@ linear_reg <- function(df, output="beta1"){
      return(nrow(df))
    }
 }
-linear_reg(oco2_nest$data[[5]],"n")
-#> [1] 5
 ```
 
 Vamos aplicar a função para cada ponto de amostragem do satélite
@@ -552,9 +549,9 @@ oco2_aux <- oco2_nest |>
 
 oco2_aux <- oco2_aux |> 
   dplyr::mutate(
-    anomaly = partial - oco2_aux |> 
+    anomaly =  oco2_aux |> 
       dplyr::pull(partial) |>  
-      mean()
+      mean() - partial
   )
 ```
 
@@ -567,6 +564,30 @@ oco2_aux |>
 ![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 ``` r
+oco2_aux |> 
+  ggplot2::ggplot(ggplot2::aes(x=beta_line, y= ..density..)) +
+  ggplot2::geom_histogram(bins=30,
+                          color="black", fill= "lightgray") +
+  ggplot2::labs(x="βpixel") +
+  ggplot2::geom_density(fill = "red", alpha = .05) +
+  ggplot2::theme_bw()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+
+``` r
+oco2_aux |> 
+  ggplot2::ggplot(ggplot2::aes(x=anomaly, y= ..density..)) +
+  ggplot2::geom_histogram(bins=30,
+                          color="black", fill= "lightgray") +
+  ggplot2::labs(x="anomaly") +
+  ggplot2::geom_density(fill = "blue", alpha = .05) +
+  ggplot2::theme_bw()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+
+``` r
 sp::coordinates(oco2_aux)=~ longitude+latitude  
 form_beta<-beta_line~1
 form_anom<-anomaly~1
@@ -577,11 +598,11 @@ form_anom<-anomaly~1
 ``` r
 vari_beta <- gstat::variogram(form_beta, data=oco2_aux)
 m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
-                               gstat::vgm(1, "Sph", 300, 1))
+                               gstat::vgm(1, "Sph", 6, 1))
 plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
 
 ### Semivariograma para anomalia
 
@@ -591,7 +612,7 @@ m_anom <- gstat::fit.variogram(vari_anom,gstat::vgm(.8,"Sph",9,.2))
 plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
 
 ``` r
 x<-oco2_aux$longitude
@@ -609,8 +630,7 @@ ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   4% done 10% done 16% done 22% done 28% done 35% done 41% done 46% done 53% done 60% done 67% done 74% done 82% done 89% done 96% done100% done
-
+#>   3% done  7% done 12% done 16% done 22% done 33% done 44% done 56% done 70% done 80% done 92% done100% done
 
 ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom, 
     block=c(0,0),
@@ -619,7 +639,7 @@ ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   0% done  7% done 14% done 22% done 29% done 36% done 44% done 51% done 59% done 65% done 69% done 75% done 81% done 86% done 90% done 93% done 98% done100% done
+#>  12% done 23% done 30% done 35% done 41% done 52% done 63% done 72% done 81% done 86% done 96% done100% done
 ```
 
 ``` r
@@ -634,7 +654,7 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_anom) |> 
@@ -648,4 +668,4 @@ tibble::as_tibble(ko_anom) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->

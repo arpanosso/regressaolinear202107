@@ -165,15 +165,15 @@ pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.
 Plot de todos os pontos.
 
 ```{r}
-br |>
-  ggplot2::ggplot() +
-  ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
-          size=.15, show.legend = FALSE) +
-  ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
-             ggplot2::aes(x=longitude,y=latitude),
-             shape=3,
-             col="red",
-             alpha=0.2)
+# br |>
+#   ggplot2::ggplot() +
+#   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
+#           size=.15, show.legend = FALSE) +
+#   ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
+#              ggplot2::aes(x=longitude,y=latitude),
+#              shape=3,
+#              col="red",
+#              alpha=0.2)
 ```
 Definindo uma função para criar as flags das diferentes regiões e da amazônia legal
 
@@ -222,7 +222,7 @@ Devemos criar a análise para um ano específico, pois a comparação do artigo 
 
 ```{r}
 oco2_nest <- oco2_br_trend |>
-  dplyr::filter(year == 2016) |> 
+  dplyr::filter(year == 2020) |> 
   tibble::as_tibble() |> 
   dplyr::mutate(quarter = lubridate::quarter(data),
                 quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
@@ -296,7 +296,6 @@ linear_reg <- function(df, output="beta1"){
      return(nrow(df))
    }
 }
-linear_reg(oco2_nest$data[[5]],"n")
 ```
 
 Vamos aplicar a função para cada ponto de amostragem do satélite (pixel).
@@ -362,6 +361,25 @@ oco2_aux |>
 ```
 
 ```{r}
+oco2_aux |> 
+  ggplot2::ggplot(ggplot2::aes(x=beta_line, y= ..density..)) +
+  ggplot2::geom_histogram(bins=30,
+                          color="black", fill= "lightgray") +
+  ggplot2::labs(x="βpixel") +
+  ggplot2::geom_density(fill = "red", alpha = .05) +
+  ggplot2::theme_bw()
+```
+```{r}
+oco2_aux |> 
+  ggplot2::ggplot(ggplot2::aes(x=anomaly, y= ..density..)) +
+  ggplot2::geom_histogram(bins=30,
+                          color="black", fill= "lightgray") +
+  ggplot2::labs(x="anomaly") +
+  ggplot2::geom_density(fill = "blue", alpha = .05) +
+  ggplot2::theme_bw()
+```
+
+```{r}
 sp::coordinates(oco2_aux)=~ longitude+latitude  
 form_beta<-beta_line~1
 form_anom<-anomaly~1
@@ -373,7 +391,7 @@ form_anom<-anomaly~1
 ```{r, warning=FALSE}
 vari_beta <- gstat::variogram(form_beta, data=oco2_aux)
 m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
-                               gstat::vgm(1, "Sph", 300, 1))
+                               gstat::vgm(1, "Sph", 6, 1))
 plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
@@ -401,7 +419,6 @@ ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta,
     debug.level=-1,  
     )
 
-
 ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom, 
     block=c(0,0),
     nsim=0,
@@ -422,7 +439,6 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::labs(fill="βpixel") +
   ggplot2::theme_bw()
 ```
-
 
 
 ```{r}
