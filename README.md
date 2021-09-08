@@ -7,9 +7,10 @@
 
 ### Data: 31/08/2021
 
-Projeto final apresentado os instrutores Athos Damiani e Fernando Correa
-da Curso-R como parte das exigências para a finalização do curso de
-**Regressão Linear** (Trilha de Machine Learning - Turma Agosto 2021).
+Projeto final apresentado os instrutores **Athos Damiani** e **Fernando
+Correa** da [curso-R](https://curso-r.com/) como parte das exigências
+para a finalização do curso de **Regressão Linear** (Trilha de Machine
+Learning - Turma Agosto 2021).
 
 ## Introdução
 
@@ -28,10 +29,10 @@ Espacial Americana** (*National Aeronautics and Space Administration -
 NASA*) para apoiar a quantificação e o monitoramento das emissões
 antropogênicas de CO<sub>2</sub>.
 
-O satélite OCO-2 foi lançado em órbita em julho de 2014 e desde então
-mede a concentração de CO<sub>2</sub> atmosférico indiretamente por meio
-da intensidade da radiação solar refletida em função da presença de
-dióxido de carbono em uma coluna de ar. Essas medições resultam em mapas
+O satélite OCO-2 foi lançado em julho de 2014 e desde então mede a
+concentração de CO<sub>2</sub> atmosférico indiretamente por meio da
+intensidade da radiação solar refletida em função da presença de dióxido
+de carbono em uma coluna de ar. Essas medições resultam em mapas
 espaciais densos e em escala fina de frações molares médias de coluna de
 ar seco de dióxido de carbono (X<sub>CO2</sub>).
 
@@ -346,9 +347,9 @@ pol_centroeste<- regiao$geom |> purrr::pluck(5) |>
 
 ``` r
 # Retirando alguns pontos
-pol_br <- pol_br[pol_br[,1]<=-34,]
-pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
-                              (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
+# pol_br <- pol_br[pol_br[,1]<=-34,]
+# pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
+#                               (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
 
 pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
 pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.6) & pol_nordeste[,2]<= -15),]
@@ -525,7 +526,7 @@ oco2_nest <- oco2_nest |>
 
 ``` r
 oco2_nest |> 
-  dplyr::filter(p_value < 0.05) |>
+  # dplyr::filter(p_value < 0.05) |>
   dplyr::filter(n_obs > 5) |> 
   # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
   #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
@@ -542,18 +543,26 @@ oco2_aux <- oco2_nest |>
   # dplyr::filter(region == "norte") |> 
   # dplyr::filter(p_value < 0.05) |> 
   dplyr::filter(n_obs > 7) |> 
-  # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
-  #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
-                # ) |> 
   tidyr::unnest(cols = c(beta_line, partial)) |>
   dplyr::ungroup() |>
   dplyr::select(longitude, latitude, beta_line, partial)
 
+q3_oco2 <- oco2_aux |> dplyr::pull(beta_line) |> quantile(.75)
+
 oco2_aux <- oco2_aux |> 
   dplyr::mutate(
-    anomaly =  oco2_aux |> 
+    anomaly =  partial - oco2_aux |> 
       dplyr::pull(partial) |>  
-      mean() - partial
+      mean(),
+    Dbeta = beta_line - oco2_aux |> 
+      dplyr::pull(beta_line) |> mean(na.rm=TRUE)
+  )
+q3_anom <- oco2_aux |> dplyr::pull(anomaly) |> quantile(.75)
+
+
+oco2_aux <- oco2_aux |> 
+  dplyr::mutate(
+    beta_index =  ifelse(beta_line <=q3_oco2, 0, 1)
   )
 
 # Mapeando
@@ -566,32 +575,46 @@ oco2_aux |>
 
 ``` r
 oco2_aux |> 
-  ggplot2::ggplot(ggplot2::aes(x=beta_line, y= ..density..)) +
+  ggplot2::ggplot(ggplot2::aes(x=beta_line)) +
   ggplot2::geom_histogram(bins=30,
-                          color="black", fill= "lightgray") +
-  ggplot2::labs(x="βpixel") +
-  ggplot2::geom_density(fill = "red", alpha = .05) +
-  ggplot2::theme_bw()
+                          fill="orange",
+                          color="black") +
+  ggplot2::labs(x="βpixel",y="Count") +
+  ggplot2::geom_vline(xintercept = q3_oco2,
+                      color = "red",
+                      lty=2) +
+  gghighlight::gghighlight(beta_line > q3_oco2,
+                           unhighlighted_params = list(
+                               color = "darkgray",
+                               fill = "lightgray")) +
+  ggplot2::theme_minimal()
+#> Warning: Could not calculate the predicate for layer 2; ignored
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 ``` r
-oco2_aux |> 
-  ggplot2::ggplot(ggplot2::aes(x=anomaly, y= ..density..)) +
-  ggplot2::geom_histogram(bins=30,
-                          color="black", fill= "lightgray") +
-  ggplot2::labs(x="anomaly") +
-  ggplot2::geom_density(fill = "blue", alpha = .05) +
-  ggplot2::theme_bw()
+# oco2_aux |> 
+#   ggplot2::ggplot(ggplot2::aes(x=anomaly)) +
+#   ggplot2::geom_histogram(bins=30,
+#                           fill="lightblue",
+#                           color="black") +
+#   ggplot2::labs(x="Anomaly",y="Count") +
+#   ggplot2::geom_vline(xintercept = q3_anom,
+#                       color = "red",
+#                       lty=2) +
+#   gghighlight::gghighlight(anomaly > q3_anom,
+#                            unhighlighted_params = list(
+#                                color = "darkgray",
+#                                fill = "lightgray")) +
+#   ggplot2::theme_minimal()
 ```
-
-![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 ``` r
 sp::coordinates(oco2_aux)=~ longitude+latitude  
 form_beta<-beta_line~1
 form_anom<-anomaly~1
+form_index<-beta_index~1
 ```
 
 ### Semivariograma para beta
@@ -614,6 +637,17 @@ plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+
+### Semivariograma para beta\_index
+
+``` r
+vari_index <- gstat::variogram(form_index, data=oco2_aux)
+m_index <- gstat::fit.variogram(vari_index,fit.method = 7,
+                               gstat::vgm(1, "Sph", 6, 1))
+plot(vari_index,model=m_index, col=1,pl=F,pch=16)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
 
 ``` r
 x<-oco2_aux$longitude
@@ -641,6 +675,15 @@ ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
     )
 #> [using ordinary kriging]
 #>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
+
+ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index, 
+    block=c(0,0),
+    nsim=0,
+    na.action=na.pass,
+    debug.level=-1,  
+    )
+#> [using ordinary kriging]
+#>   0% done  1% done  2% done  4% done  5% done  6% done  7% done  8% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
 ```
 
 ``` r
@@ -656,7 +699,22 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
+
+``` r
+tibble::as_tibble(ko_index) |> 
+  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
+                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
+  dplyr::filter(flag_br | flag_nordeste) |> 
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
+  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="Beta_index") +
+  ggplot2::theme_bw()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_anom) |> 
@@ -671,4 +729,4 @@ tibble::as_tibble(ko_anom) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->

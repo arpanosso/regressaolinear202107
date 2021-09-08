@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 ### Aluno: Alan R. Panosso
 ### Data: 31/08/2021
 
-Projeto final apresentado os instrutores Athos Damiani e Fernando Correa da Curso-R como parte das exigências para a finalização do curso de **Regressão Linear** (Trilha de Machine Learning - Turma Agosto 2021).
+Projeto final apresentado os instrutores **Athos Damiani** e **Fernando Correa** da [curso-R](https://curso-r.com/) como parte das exigências para a finalização do curso de **Regressão Linear** (Trilha de Machine Learning - Turma Agosto 2021).
 
 ## Introdução
 
@@ -24,7 +24,7 @@ As concentrações atmosféricas de gases do efeito estufa (GEE) têm aumentado 
 
 O Observatório Orbital de Carbono-2 (OCO-2) foi projetado pela **Agência Espacial Americana** (*National Aeronautics and Space Administration - NASA*) para apoiar a quantificação e o monitoramento das emissões antropogênicas de CO~2~. 
 
-O satélite OCO-2 foi lançado em órbita em julho de 2014 e desde então mede a concentração de CO~2~ atmosférico indiretamente por meio da intensidade da radiação solar refletida em função da presença de dióxido de carbono em uma coluna de ar. Essas medições resultam em mapas espaciais densos e em escala fina de frações molares médias de coluna de ar seco de dióxido de carbono (X~CO2~).
+O satélite OCO-2 foi lançado em julho de 2014 e desde então mede a concentração de CO~2~ atmosférico indiretamente por meio da intensidade da radiação solar refletida em função da presença de dióxido de carbono em uma coluna de ar. Essas medições resultam em mapas espaciais densos e em escala fina de frações molares médias de coluna de ar seco de dióxido de carbono (X~CO2~).
 
 Nesse contexto, a variação de X~CO2~ opode ser modelada por meio da **análise de regressão linear simples**, uma vez que se espera um aumento dessas concentrações com o passar do tempo. Em adição, as estimativas do coeficiente angular **β~1~** fornece informações importantes para uma determinada região, haja visto que se **β~1~'** (observado para essa região) for significativamente maior ao **β~1~** padrão (observado para uma macro-região), tal área poderá ser considerada uma potencial fonte de carbono para a atmosfera, caso contrário (**β~1~'** < **β~1~**), a área em questão poderá ser considerada um sumidouro de CO~2~ atmosférico, mitigando o efeito estufa adicional e, consequentemente, as mudanças climáticas globais. 
 
@@ -153,9 +153,9 @@ pol_centroeste<- regiao$geom |> purrr::pluck(5) |>
 
 ```{r}
 # Retirando alguns pontos
-pol_br <- pol_br[pol_br[,1]<=-34,]
-pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
-                              (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
+# pol_br <- pol_br[pol_br[,1]<=-34,]
+# pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
+#                               (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
 
 pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
 pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.6) & pol_nordeste[,2]<= -15),]
@@ -323,7 +323,7 @@ oco2_nest <- oco2_nest |>
 
 ```{r, error=FALSE, warning=FALSE, message=FALSE}
 oco2_nest |> 
-  dplyr::filter(p_value < 0.05) |>
+  # dplyr::filter(p_value < 0.05) |>
   dplyr::filter(n_obs > 5) |> 
   # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
   #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
@@ -340,18 +340,26 @@ oco2_aux <- oco2_nest |>
   # dplyr::filter(region == "norte") |> 
   # dplyr::filter(p_value < 0.05) |> 
   dplyr::filter(n_obs > 7) |> 
-  # dplyr::mutate(class = ifelse(beta_line > limite_inferior_beta_regional,
-  #                              1,ifelse(beta_line < limite_inferior_beta_regional, -1, 0))
-                # ) |> 
   tidyr::unnest(cols = c(beta_line, partial)) |>
   dplyr::ungroup() |>
   dplyr::select(longitude, latitude, beta_line, partial)
 
+q3_oco2 <- oco2_aux |> dplyr::pull(beta_line) |> quantile(.75)
+
 oco2_aux <- oco2_aux |> 
   dplyr::mutate(
-    anomaly =  oco2_aux |> 
+    anomaly =  partial - oco2_aux |> 
       dplyr::pull(partial) |>  
-      mean() - partial
+      mean(),
+    Dbeta = beta_line - oco2_aux |> 
+      dplyr::pull(beta_line) |> mean(na.rm=TRUE)
+  )
+q3_anom <- oco2_aux |> dplyr::pull(anomaly) |> quantile(.75)
+
+
+oco2_aux <- oco2_aux |> 
+  dplyr::mutate(
+    beta_index =  ifelse(beta_line <=q3_oco2, 0, 1)
   )
 
 # Mapeando
@@ -362,29 +370,44 @@ oco2_aux |>
 
 ```{r}
 oco2_aux |> 
-  ggplot2::ggplot(ggplot2::aes(x=beta_line, y= ..density..)) +
+  ggplot2::ggplot(ggplot2::aes(x=beta_line)) +
   ggplot2::geom_histogram(bins=30,
-                          color="black", fill= "lightgray") +
-  ggplot2::labs(x="βpixel") +
-  ggplot2::geom_density(fill = "red", alpha = .05) +
-  ggplot2::theme_bw()
+                          fill="orange",
+                          color="black") +
+  ggplot2::labs(x="βpixel",y="Count") +
+  ggplot2::geom_vline(xintercept = q3_oco2,
+                      color = "red",
+                      lty=2) +
+  gghighlight::gghighlight(beta_line > q3_oco2,
+                           unhighlighted_params = list(
+                               color = "darkgray",
+                               fill = "lightgray")) +
+  ggplot2::theme_minimal()
 ```
 
 
 ```{r}
-oco2_aux |> 
-  ggplot2::ggplot(ggplot2::aes(x=anomaly, y= ..density..)) +
-  ggplot2::geom_histogram(bins=30,
-                          color="black", fill= "lightgray") +
-  ggplot2::labs(x="anomaly") +
-  ggplot2::geom_density(fill = "blue", alpha = .05) +
-  ggplot2::theme_bw()
+# oco2_aux |> 
+#   ggplot2::ggplot(ggplot2::aes(x=anomaly)) +
+#   ggplot2::geom_histogram(bins=30,
+#                           fill="lightblue",
+#                           color="black") +
+#   ggplot2::labs(x="Anomaly",y="Count") +
+#   ggplot2::geom_vline(xintercept = q3_anom,
+#                       color = "red",
+#                       lty=2) +
+#   gghighlight::gghighlight(anomaly > q3_anom,
+#                            unhighlighted_params = list(
+#                                color = "darkgray",
+#                                fill = "lightgray")) +
+#   ggplot2::theme_minimal()
 ```
 
 ```{r}
 sp::coordinates(oco2_aux)=~ longitude+latitude  
 form_beta<-beta_line~1
 form_anom<-anomaly~1
+form_index<-beta_index~1
 ```
 
 
@@ -403,6 +426,15 @@ plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 vari_anom<-gstat::variogram(form_anom, data=oco2_aux)
 m_anom <- gstat::fit.variogram(vari_anom,gstat::vgm(.8,"Sph",9,.2))
 plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
+```
+
+### Semivariograma para beta_index
+
+```{r, warning=FALSE}
+vari_index <- gstat::variogram(form_index, data=oco2_aux)
+m_index <- gstat::fit.variogram(vari_index,fit.method = 7,
+                               gstat::vgm(1, "Sph", 6, 1))
+plot(vari_index,model=m_index, col=1,pl=F,pch=16)
 ```
 
 ```{r}
@@ -427,6 +459,13 @@ ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
     na.action=na.pass,
     debug.level=-1,  
     )
+
+ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index, 
+    block=c(0,0),
+    nsim=0,
+    na.action=na.pass,
+    debug.level=-1,  
+    )
 ```
 
 
@@ -442,7 +481,18 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::labs(fill="βpixel") +
   ggplot2::theme_bw()
 ```
-
+```{r}
+tibble::as_tibble(ko_index) |> 
+  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
+                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
+  dplyr::filter(flag_br | flag_nordeste) |> 
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
+  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="Beta_index") +
+  ggplot2::theme_bw()
+```
 
 ```{r}
 tibble::as_tibble(ko_anom) |> 
