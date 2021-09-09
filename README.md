@@ -122,7 +122,7 @@ dplyr::glimpse(oco2)
 #> $ xco2_moles_mole_1                      <dbl> 0.000394333, 0.000395080, 0.000~
 ```
 
-Será necessário transformar os dados de X<sub>CO2</sub>, para ppm em
+Será necessário transformar os dados de X<sub>CO2</sub>, para *ppm* em
 seguida criar as variáveis de data a partir da variável
 `time_yyyymmddhhmmss`.
 
@@ -142,13 +142,13 @@ oco2<-oco2 |>
 Existe uma tendência de aumento monotônica mundial da concentração de
 CO<sub>2</sub> na atmosfera, assim, ela deve ser modelada para obtermos
 **β<sub>1</sub>** para ser considerado o padrão para comparação às
-tendências regionais. Devido à periodicidade de retorno do satélite em
-um ponto (ao redor de 16 dias) os dados devem ser agrupados pelo mês
-dentro de um determinado ano.
+tendências de uma determinada região. Devido à periodicidade de retorno
+do satélite em um ponto (ao redor de 16 dias) os dados devem ser
+agrupados pelo mês dentro de um determinado ano.
 
 ``` r
 oco2 |> 
-  dplyr::filter(year == 2015) |> 
+  dplyr::filter(year %in% 2014:2016) |> 
   dplyr::group_by(dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |> 
   ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean )) +
@@ -172,7 +172,8 @@ oco2_aux <- oco2 |>
 mod <- lm(xco2_mean ~ dia, data = oco2_aux)
 br <- mod$coefficients[2] # beta regional
 ep <- summary(mod)$coefficients[2,2] # erro padrão
- # limite inferior do Beta regional
+
+# limite inferior do Beta regional
 limite_inferior_beta_regional <- br - ep
 
 # limite superior do Beta regional
@@ -312,9 +313,9 @@ cooks.distance(mod)
 #> 1.351446e-04 5.807543e-03 1.264129e-02 7.193662e-05 3.172273e-03
 ```
 
-A próxima operação é selecionarmos na base de dados somente os pontos
+A próxima operação é selecionar na base de dados somente os pontos
 pertencentes ao território brasileiro. Assim vamos utilizar o pacote
-`{geobr}` para criarmos o filtro a partir dos polígonos das diferentes
+`{geobr}` para criarmos os filtros a partir dos polígonos das diferentes
 regiões do Brasil.
 
 ``` r
@@ -329,20 +330,16 @@ Agora podemos extrair os polígonos.
 
 ``` r
 ### Polígono Brasil
-pol_br <- br$geom |> purrr::pluck(1) |> 
-  as.matrix()
+pol_br <- br$geom |> purrr::pluck(1) |> as.matrix()
+```
 
+``` r
 ### Polígonos das Regiões
-pol_norte <- regiao$geom |> purrr::pluck(1) |> 
-  as.matrix()
-pol_nordeste <- regiao$geom |> purrr::pluck(2) |> 
-  as.matrix()
-pol_sudeste <- regiao$geom |> purrr::pluck(3) |> 
-  as.matrix()
-pol_sul <- regiao$geom |> purrr::pluck(4) |> 
-  as.matrix()
-pol_centroeste<- regiao$geom |> purrr::pluck(5) |> 
-  as.matrix()
+pol_norte <- regiao$geom |> purrr::pluck(1) |> as.matrix()
+pol_nordeste <- regiao$geom |> purrr::pluck(2) |> as.matrix()
+pol_sudeste <- regiao$geom |> purrr::pluck(3) |> as.matrix()
+pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
+pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 ```
 
 ``` r
@@ -351,8 +348,12 @@ pol_centroeste<- regiao$geom |> purrr::pluck(5) |>
 # pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
 #                               (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
 
+# Arrumando alguns pontos
 pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
 pol_nordeste <- pol_nordeste[!((pol_nordeste[,1]>=-38.7 & pol_nordeste[,1]<=-38.6) & pol_nordeste[,2]<= -15),]
+
+# retirando pontos do sudeste
+pol_sudeste <- pol_sudeste[pol_sudeste[,1]<=-30,]
 ```
 
 Plot de todos os pontos.
@@ -362,17 +363,17 @@ Plot de todos os pontos.
    ggplot2::ggplot() +
    ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
            size=.15, show.legend = FALSE) +
-   ggplot2::geom_point(data=oco2 |> dplyr::filter(year == 2014) ,
-              ggplot2::aes(x=longitude,y=latitude),
-              shape=3,
+   ggplot2::geom_point(data=oco2 |> dplyr::sample_n(10000) |> 
+                         dplyr::filter(year == 2014) ,
+              ggplot2::aes(x=longitude, y=latitude),
+              shape=17,
               col="red",
               alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
-Definindo uma função para criar as flags das diferentes regiões e da
-amazônia legal
+Definindo uma função para criar as flags das diferentes regiões do país.
 
 ``` r
 def_pol <- function(x, y, pol){
@@ -386,19 +387,39 @@ def_pol <- function(x, y, pol){
 Vamos criar o filtro para os pontos pertencentes ao polígono do Brasil,
 demais regiões e da amazônia legal. Devemos salientar que esses dados
 estão com a tendência de aumento ao longo do tempo, posteriormete vamos
-salvar esses dados para posterior disponibilização.
+salvar o arquivo para posterior disponibilização.
 
 ``` r
-# oco2 <- oco2 |>
-#           dplyr::mutate(
-#             flag_br = def_pol(longitude, latitude, pol_br),
-#             flag_norte = def_pol(longitude, latitude, pol_norte),
-#             flag_nordeste = def_pol(longitude, latitude, pol_nordeste),
-#             flag_sul = def_pol(longitude, latitude, pol_sul),
-#             flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
-#             flag_centroeste = def_pol(longitude, latitude, pol_centroeste)
-#           )
-# dplyr::glimpse(oco2)
+oco2 <- oco2 |>
+          dplyr::mutate(
+            flag_br = def_pol(longitude, latitude, pol_br),
+            flag_norte = def_pol(longitude, latitude, pol_norte),
+            flag_nordeste = def_pol(longitude, latitude, pol_nordeste),
+            flag_sul = def_pol(longitude, latitude, pol_sul),
+            flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
+            flag_centroeste = def_pol(longitude, latitude, pol_centroeste)
+          )
+```
+
+Verificação dos pontos dentro do terrtório brasileiro.
+
+``` r
+ br |>
+   ggplot2::ggplot() +
+   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
+           size=.15, show.legend = FALSE) +
+   ggplot2::geom_point(data=oco2 |> 
+                         dplyr::filter(flag_norte |
+                                         flag_sul |
+                                         flag_sudeste|
+                                         flag_centroeste|
+                                         flag_nordeste) |> 
+                         dplyr::sample_n(10000) |> 
+                         dplyr::filter(year == 2014) ,
+              ggplot2::aes(x=longitude, y=latitude),
+              shape=17,
+              col="red",
+              alpha=0.2)   
 ```
 
 Pra garantir a reprodutibilidade desse material, vamos
@@ -406,11 +427,13 @@ salvar/disponibilizar os dados na base `oco2_br_trend.rds`, somente com
 os pontos dentro do território nacional.
 
 ``` r
- # readr::write_rds(oco2 |>
- #                    dplyr::mutate(flag_br = flag_br | flag_nordeste) |> 
- #                    dplyr::filter(flag_br) |> 
- #                    dplyr::select(-flag_br)
- #                  , "data/oco2_br_trend.rds")
+  readr::write_rds(oco2 |>
+                     dplyr::filter(flag_norte |
+                                         flag_sul |
+                                         flag_sudeste|
+                                         flag_centroeste|
+                                         flag_nordeste), 
+                     "data/oco2_br_trend.rds")
 ```
 
 Vamos ler o banco de dados *\[com a tendência\]*.
@@ -536,7 +559,7 @@ oco2_nest |>
   ggplot2::geom_point()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 ``` r
 oco2_aux <- oco2_nest |> 
@@ -571,7 +594,7 @@ oco2_aux |>
   ggplot2::geom_point()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 ``` r
 oco2_aux |> 
@@ -591,24 +614,27 @@ oco2_aux |>
 #> Warning: Could not calculate the predicate for layer 2; ignored
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
 ``` r
-# oco2_aux |> 
-#   ggplot2::ggplot(ggplot2::aes(x=anomaly)) +
-#   ggplot2::geom_histogram(bins=30,
-#                           fill="lightblue",
-#                           color="black") +
-#   ggplot2::labs(x="Anomaly",y="Count") +
-#   ggplot2::geom_vline(xintercept = q3_anom,
-#                       color = "red",
-#                       lty=2) +
-#   gghighlight::gghighlight(anomaly > q3_anom,
-#                            unhighlighted_params = list(
-#                                color = "darkgray",
-#                                fill = "lightgray")) +
-#   ggplot2::theme_minimal()
+oco2_aux |>
+  ggplot2::ggplot(ggplot2::aes(x=anomaly)) +
+  ggplot2::geom_histogram(bins=30,
+                          fill="lightblue",
+                          color="black") +
+  ggplot2::labs(x="Anomaly",y="Count") +
+  ggplot2::geom_vline(xintercept = q3_anom,
+                      color = "red",
+                      lty=2) +
+  gghighlight::gghighlight(anomaly > q3_anom,
+                           unhighlighted_params = list(
+                               color = "darkgray",
+                               fill = "lightgray")) +
+  ggplot2::theme_minimal()
+#> Warning: Could not calculate the predicate for layer 2; ignored
 ```
+
+![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
 
 ``` r
 sp::coordinates(oco2_aux)=~ longitude+latitude  
@@ -626,7 +652,7 @@ m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
 plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
 
 ### Semivariograma para anomalia
 
@@ -636,7 +662,7 @@ m_anom <- gstat::fit.variogram(vari_anom,gstat::vgm(.8,"Sph",9,.2))
 plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
 
 ### Semivariograma para beta\_index
 
@@ -647,7 +673,7 @@ m_index <- gstat::fit.variogram(vari_index,fit.method = 7,
 plot(vari_index,model=m_index, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
 ``` r
 x<-oco2_aux$longitude
@@ -683,14 +709,40 @@ ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   0% done  1% done  2% done  4% done  5% done  6% done  7% done  8% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
+#>   0% done  1% done  2% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
+```
+
+``` r
+mapa <- geobr::read_state(showProgress = FALSE)
+#> Using year 2010
+#> Loading data for the whole country
+```
+
+``` r
+mapa$abbrev_state
+#>  [1] "RO" "AC" "AM" "RR" "PA" "AP" "TO" "MA" "PI" "CE" "RN" "PB" "PE" "AL" "SE"
+#> [16] "BA" "MG" "ES" "RJ" "SP" "PR" "SC" "RS" "MS" "MT" "GO" "DF"
+get_pol <- function(x, lista){
+  lista |> purrr::pluck(x) |> as.matrix()
+}
+poligonos <- purrr::map(1:27, get_pol, lista=mapa$geom)
+```
+
+``` r
+for(i in 1:27){
+  if(i==1){
+    flag_br <- def_pol(grid$X,grid$Y,poligonos[[i]])
+  } else {
+    flag_aux <- def_pol(grid$X,grid$Y,poligonos[[i]])
+    flag_br = flag_br | flag_aux
+    }
+}
 ```
 
 ``` r
 tibble::as_tibble(ko_beta) |> 
-  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
-                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
-  dplyr::filter(flag_br | flag_nordeste) |> 
+  tibble::add_column(flag_br) |> 
+  dplyr::filter(flag_br) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
@@ -699,28 +751,12 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
-
-``` r
-tibble::as_tibble(ko_index) |> 
-  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
-                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
-  dplyr::filter(flag_br | flag_nordeste) |> 
-  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
-  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
-  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
-  ggplot2::coord_equal()+
-  ggplot2::labs(fill="Beta_index") +
-  ggplot2::theme_bw()
-```
-
-![](README_files/figure-gfm/unnamed-chunk-30-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_anom) |> 
-  dplyr::mutate(flag_br = def_pol(X,Y,pol_br),
-                flag_nordeste = def_pol(X,Y,pol_nordeste)) |> 
-  dplyr::filter(flag_br | flag_nordeste) |> 
+  tibble::add_column(flag_br) |> 
+  dplyr::filter(flag_br) |> 
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
@@ -729,4 +765,18 @@ tibble::as_tibble(ko_anom) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+
+``` r
+tibble::as_tibble(ko_index) |> 
+  tibble::add_column(flag_br) |> 
+  dplyr::filter(flag_br) |> 
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
+  ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="P(x = source)") +
+  ggplot2::theme_bw()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
