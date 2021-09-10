@@ -151,9 +151,9 @@ pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 
 ```{r}
 # Retirando alguns pontos
-# pol_br <- pol_br[pol_br[,1]<=-34,]
-# pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
-#                               (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
+pol_br <- pol_br[pol_br[,1]<=-34,]
+pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
+                              (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
 
 # Arrumando alguns pontos
 pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
@@ -171,7 +171,7 @@ Plot de todos os pontos.
    ggplot2::ggplot() +
    ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
            size=.15, show.legend = FALSE) +
-   ggplot2::geom_point(data=oco2 |> dplyr::sample_n(10000) |> 
+   ggplot2::geom_point(data=oco2 |> dplyr::sample_n(20000) |> 
                          dplyr::filter(year == 2014) ,
               ggplot2::aes(x=longitude, y=latitude),
               shape=17,
@@ -179,7 +179,7 @@ Plot de todos os pontos.
               alpha=0.2)
 ```
 
-Definindo uma função para criar as flags das diferentes regiões do país.
+Definindo uma função para criar as flags das diferentes regiões do país, a partir da função `point.in.polygon` do pacote `{sp}`.
 
 ```{r}
 def_pol <- function(x, y, pol){
@@ -190,7 +190,7 @@ def_pol <- function(x, y, pol){
 }
 ```
 
-Vamos criar o filtro para os pontos pertencentes ao polígono do Brasil, demais regiões e da amazônia legal. Devemos salientar que esses dados estão com a tendência de aumento ao longo do tempo, posteriormete vamos salvar o arquivo para posterior disponibilização.
+Vamos criar o filtro para os pontos pertencentes ao polígono do Brasill. Devemos salientar que esses dados estão com a tendência de aumento ao longo do tempo, pois, vamos salvar o arquivo para posterior disponibilização.
 
 ```{r, eval=FALSE}
 oco2 <- oco2 |>
@@ -204,7 +204,7 @@ oco2 <- oco2 |>
           )
 ```
 
-Verificação dos pontos dentro do terrtório brasileiro.
+Verificação dos pontos dentro do território brasileiro.
 ```{r , eval=FALSE}
  br |>
    ggplot2::ggplot() +
@@ -216,7 +216,7 @@ Verificação dos pontos dentro do terrtório brasileiro.
                                          flag_sudeste|
                                          flag_centroeste|
                                          flag_nordeste) |> 
-                         dplyr::sample_n(10000) |> 
+                         dplyr::sample_n(20000) |> 
                          dplyr::filter(year == 2014) ,
               ggplot2::aes(x=longitude, y=latitude),
               shape=17,
@@ -246,7 +246,7 @@ oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
 
 Devemos criar a análise para um ano específico, pois a comparação do artigo será ano a ano.
 
-```{r}
+```{r, message=FALSE, error=FALSE, warning=FALSE}
 oco2_nest <- oco2_br_trend |>
   dplyr::filter(year == 2015) |> 
   tibble::as_tibble() |> 
@@ -440,7 +440,7 @@ form_index<-beta_index~1
 ```{r, warning=FALSE}
 vari_beta <- gstat::variogram(form_beta, data=oco2_aux)
 m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
-                               gstat::vgm(1, "Sph", 6, 1))
+                               gstat::vgm(1, "Sph", 8, 1))
 plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
@@ -455,9 +455,11 @@ plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ### Semivariograma para beta_index
 
 ```{r, warning=FALSE}
-vari_index <- gstat::variogram(form_index, data=oco2_aux)
+vari_index <- gstat::variogram(form_index, data=oco2_aux,
+                               cutoff = 5, 
+                               width = 5/15)
 m_index <- gstat::fit.variogram(vari_index,fit.method = 7,
-                               gstat::vgm(1, "Sph", 6, 1))
+                               gstat::vgm(1, "Sph", 4, 1))
 plot(vari_index,model=m_index, col=1,pl=F,pch=16)
 ```
 
@@ -497,31 +499,21 @@ ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index,
 mapa <- geobr::read_state(showProgress = FALSE)
 ```
 
-
 ```{r}
-mapa$abbrev_state
-get_pol <- function(x, lista){
-  lista |> purrr::pluck(x) |> as.matrix()
+get_pol_in_pol <- function(indice, lista, gradeado){
+  poligono <- lista |> purrr::pluck(indice) |> as.matrix()
+  flag <- def_pol(gradeado$X, gradeado$Y, poligono)
+  return(flag)
 }
-poligonos <- purrr::map(1:27, get_pol, lista=mapa$geom)
-```
-
-```{r}
-for(i in 1:27){
-  if(i==1){
-    flag_br <- def_pol(grid$X,grid$Y,poligonos[[i]])
-  } else {
-    flag_aux <- def_pol(grid$X,grid$Y,poligonos[[i]])
-    flag_br = flag_br | flag_aux
-    }
-}
+flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom, gradeado = grid)
+flag_br <- apply(flag, 1, sum) != 0
 ```
 
 
 ```{r}
 tibble::as_tibble(ko_beta) |> 
-  tibble::add_column(flag_br) |> 
-  dplyr::filter(flag_br) |> 
+  tibble::add_column(flag_br) |>
+  dplyr::filter(flag_br) |>
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
@@ -529,7 +521,6 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::labs(fill="βpixel") +
   ggplot2::theme_bw()
 ```
-
 
 ```{r}
 tibble::as_tibble(ko_anom) |> 

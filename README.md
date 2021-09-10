@@ -344,9 +344,9 @@ pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 
 ``` r
 # Retirando alguns pontos
-# pol_br <- pol_br[pol_br[,1]<=-34,]
-# pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
-#                               (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
+pol_br <- pol_br[pol_br[,1]<=-34,]
+pol_br <- pol_br[!((pol_br[,1]>=-38.8 & pol_br[,1]<=-38.6) &
+                              (pol_br[,2]>= -19 & pol_br[,2]<= -16)),]
 
 # Arrumando alguns pontos
 pol_nordeste <- pol_nordeste[pol_nordeste[,1]<=-34,]
@@ -363,7 +363,7 @@ Plot de todos os pontos.
    ggplot2::ggplot() +
    ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
            size=.15, show.legend = FALSE) +
-   ggplot2::geom_point(data=oco2 |> dplyr::sample_n(10000) |> 
+   ggplot2::geom_point(data=oco2 |> dplyr::sample_n(20000) |> 
                          dplyr::filter(year == 2014) ,
               ggplot2::aes(x=longitude, y=latitude),
               shape=17,
@@ -373,7 +373,8 @@ Plot de todos os pontos.
 
 ![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
-Definindo uma função para criar as flags das diferentes regiões do país.
+Definindo uma função para criar as flags das diferentes regiões do país,
+a partir da função `point.in.polygon` do pacote `{sp}`.
 
 ``` r
 def_pol <- function(x, y, pol){
@@ -384,10 +385,10 @@ def_pol <- function(x, y, pol){
 }
 ```
 
-Vamos criar o filtro para os pontos pertencentes ao polígono do Brasil,
-demais regiões e da amazônia legal. Devemos salientar que esses dados
-estão com a tendência de aumento ao longo do tempo, posteriormete vamos
-salvar o arquivo para posterior disponibilização.
+Vamos criar o filtro para os pontos pertencentes ao polígono do Brasill.
+Devemos salientar que esses dados estão com a tendência de aumento ao
+longo do tempo, pois, vamos salvar o arquivo para posterior
+disponibilização.
 
 ``` r
 oco2 <- oco2 |>
@@ -401,7 +402,7 @@ oco2 <- oco2 |>
           )
 ```
 
-Verificação dos pontos dentro do terrtório brasileiro.
+Verificação dos pontos dentro do território brasileiro.
 
 ``` r
  br |>
@@ -414,7 +415,7 @@ Verificação dos pontos dentro do terrtório brasileiro.
                                          flag_sudeste|
                                          flag_centroeste|
                                          flag_nordeste) |> 
-                         dplyr::sample_n(10000) |> 
+                         dplyr::sample_n(20000) |> 
                          dplyr::filter(year == 2014) ,
               ggplot2::aes(x=longitude, y=latitude),
               shape=17,
@@ -465,7 +466,6 @@ oco2_nest <- oco2_br_trend |>
   ) |> 
   dplyr::group_by(region, latitude, longitude) |> 
   tidyr::nest() 
-#> `summarise()` has grouped output by 'region', 'longitude', 'latitude'. You can override using the `.groups` argument.
 ```
 
 Função para construção da análise de regressão linear para cada pixel, e
@@ -648,7 +648,7 @@ form_index<-beta_index~1
 ``` r
 vari_beta <- gstat::variogram(form_beta, data=oco2_aux)
 m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
-                               gstat::vgm(1, "Sph", 6, 1))
+                               gstat::vgm(1, "Sph", 8, 1))
 plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
@@ -667,9 +667,11 @@ plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ### Semivariograma para beta\_index
 
 ``` r
-vari_index <- gstat::variogram(form_index, data=oco2_aux)
+vari_index <- gstat::variogram(form_index, data=oco2_aux,
+                               cutoff = 5, 
+                               width = 5/15)
 m_index <- gstat::fit.variogram(vari_index,fit.method = 7,
-                               gstat::vgm(1, "Sph", 6, 1))
+                               gstat::vgm(1, "Sph", 4, 1))
 plot(vari_index,model=m_index, col=1,pl=F,pch=16)
 ```
 
@@ -709,7 +711,7 @@ ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   0% done  1% done  2% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
+#>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
 ```
 
 ``` r
@@ -719,30 +721,26 @@ mapa <- geobr::read_state(showProgress = FALSE)
 ```
 
 ``` r
-mapa$abbrev_state
-#>  [1] "RO" "AC" "AM" "RR" "PA" "AP" "TO" "MA" "PI" "CE" "RN" "PB" "PE" "AL" "SE"
-#> [16] "BA" "MG" "ES" "RJ" "SP" "PR" "SC" "RS" "MS" "MT" "GO" "DF"
-get_pol <- function(x, lista){
-  lista |> purrr::pluck(x) |> as.matrix()
+get_pol_in_pol <- function(indice, lista, gradeado){
+  poligono <- lista |> purrr::pluck(indice) |> as.matrix()
+  flag <- def_pol(gradeado$X, gradeado$Y, poligono)
+  return(flag)
 }
-poligonos <- purrr::map(1:27, get_pol, lista=mapa$geom)
-```
-
-``` r
-for(i in 1:27){
-  if(i==1){
-    flag_br <- def_pol(grid$X,grid$Y,poligonos[[i]])
-  } else {
-    flag_aux <- def_pol(grid$X,grid$Y,poligonos[[i]])
-    flag_br = flag_br | flag_aux
-    }
-}
+flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom, gradeado = grid)
+#> New names:
+#> * NA -> ...1
+#> * NA -> ...2
+#> * NA -> ...3
+#> * NA -> ...4
+#> * NA -> ...5
+#> * ...
+flag_br <- apply(flag, 1, sum) != 0
 ```
 
 ``` r
 tibble::as_tibble(ko_beta) |> 
-  tibble::add_column(flag_br) |> 
-  dplyr::filter(flag_br) |> 
+  tibble::add_column(flag_br) |>
+  dplyr::filter(flag_br) |>
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") + 
   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") + 
@@ -751,7 +749,7 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_anom) |> 
@@ -765,7 +763,7 @@ tibble::as_tibble(ko_anom) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_index) |> 
@@ -779,4 +777,4 @@ tibble::as_tibble(ko_index) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
