@@ -86,13 +86,30 @@ Existe uma tendência de aumento monotônica mundial da concentração de CO~2~ 
 
 ```{r, warning=FALSE, error=FALSE, message=FALSE}
 oco2 |> 
-  dplyr::filter(year %in% 2014:2016) |> 
+  dplyr::filter(year %in% 2015:2020) |> 
   dplyr::group_by(dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |> 
   ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean )) +
   ggplot2::geom_point(shape=21,color="black",fill="gray") +
   ggplot2::geom_line(color="red") +
   ggplot2::geom_smooth(method = "lm") +
+  ggpubr::stat_regline_equation(ggplot2::aes(
+  label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::theme_bw()
+```
+
+
+```{r}
+oco2 |>
+  dplyr::filter(year %in% 2015:2020) |>
+  dplyr::group_by(year, dia) |>
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |>
+  ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean,
+                               fill=forcats::as_factor(year))) +
+  ggplot2::geom_point(shape=21,color="black") +
+  #ggplot2::geom_line(color="red") +
+  ggplot2::geom_smooth(method = "lm") +
+  ggplot2::facet_wrap(~year,scales = "free")+
   ggpubr::stat_regline_equation(ggplot2::aes(
   label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw()

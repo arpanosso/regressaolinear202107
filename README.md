@@ -148,7 +148,7 @@ agrupados pelo mês dentro de um determinado ano.
 
 ``` r
 oco2 |> 
-  dplyr::filter(year %in% 2014:2016) |> 
+  dplyr::filter(year %in% 2015:2020) |> 
   dplyr::group_by(dia) |> 
   dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |> 
   ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean )) +
@@ -161,6 +161,27 @@ oco2 |>
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+
+``` r
+oco2 |>
+  dplyr::filter(year %in% 2015:2020) |>
+  dplyr::group_by(year, dia) |>
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |>
+  ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean,
+                               fill=forcats::as_factor(year))) +
+  ggplot2::geom_point(shape=21,color="black") +
+  #ggplot2::geom_line(color="red") +
+  ggplot2::geom_smooth(method = "lm") +
+  ggplot2::facet_wrap(~year,scales = "free")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+  label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::theme_bw()
+#> `summarise()` has grouped output by 'year'. You can override using the `.groups` argument.
+#> Don't know how to automatically pick scale for object of type difftime. Defaulting to continuous.
+#> `geom_smooth()` using formula 'y ~ x'
+```
+
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 Para ajustar o modelo linear, usamos `lm()`.
 
@@ -201,7 +222,7 @@ broom::augment(mod, interval="confidence")
 plot(mod)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-6-4.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-7-4.png)<!-- -->
 
 ``` r
 cooks.distance(mod)
@@ -371,7 +392,7 @@ Plot de todos os pontos.
               alpha=0.2)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
 
 Definindo uma função para criar as flags das diferentes regiões do país,
 a partir da função `point.in.polygon` do pacote `{sp}`.
@@ -559,7 +580,7 @@ oco2_nest |>
   ggplot2::geom_point()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 ``` r
 oco2_aux <- oco2_nest |> 
@@ -594,7 +615,7 @@ oco2_aux |>
   ggplot2::geom_point()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
 ``` r
 oco2_aux |> 
@@ -614,7 +635,7 @@ oco2_aux |>
 #> Warning: Could not calculate the predicate for layer 2; ignored
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
 
 ``` r
 oco2_aux |>
@@ -634,7 +655,7 @@ oco2_aux |>
 #> Warning: Could not calculate the predicate for layer 2; ignored
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
 
 ``` r
 sp::coordinates(oco2_aux)=~ longitude+latitude  
@@ -652,7 +673,7 @@ m_beta <- gstat::fit.variogram(vari_beta,fit.method = 7,
 plot(vari_beta,model=m_beta, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
 
 ### Semivariograma para anomalia
 
@@ -662,7 +683,7 @@ m_anom <- gstat::fit.variogram(vari_anom,gstat::vgm(.8,"Sph",9,.2))
 plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
 ### Semivariograma para beta\_index
 
@@ -675,7 +696,7 @@ m_index <- gstat::fit.variogram(vari_index,fit.method = 7,
 plot(vari_index,model=m_index, col=1,pl=F,pch=16)
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
 
 ``` r
 x<-oco2_aux$longitude
@@ -711,7 +732,7 @@ ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
+#>   1% done  2% done  4% done  5% done  6% done  7% done  8% done 10% done 11% done 12% done 13% done 15% done 16% done 17% done 18% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 94% done 95% done 97% done 98% done100% done
 ```
 
 ``` r
@@ -749,7 +770,7 @@ tibble::as_tibble(ko_beta) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_anom) |> 
@@ -763,7 +784,7 @@ tibble::as_tibble(ko_anom) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
 
 ``` r
 tibble::as_tibble(ko_index) |> 
@@ -777,4 +798,4 @@ tibble::as_tibble(ko_index) |>
   ggplot2::theme_bw()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->

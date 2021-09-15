@@ -1,7 +1,56 @@
+# Adicionar o beta nacional de cada ano inserido nos mapas valor numéricos da
+# derivada
+
+# Keelin curve nacional de 2015 a 2015 e dentro de cada faixa de cada anos
+# colocar o beta embaixo
+
+#
+
+
+# Gráfico Keelin ----------------------------------------------------------
+
+"data/oco2.rds" |>
+  readr::read_rds() |>
+  dplyr::mutate(
+    xco2 = xco2_moles_mole_1*1e06,
+    data = lubridate::ymd_hms(time_yyyymmddhhmmss),
+    year = lubridate::year(data),
+    month = lubridate::month(data),
+    day = lubridate::day(data),
+    dia = difftime(data,"2014-01-09", units = "days"),
+    day_week = lubridate::wday(data),
+    month_year = lubridate::make_date(year, month, 1) ) |>
+  dplyr::filter(year %in% 2015:2020) |>
+  dplyr::group_by(year, dia) |>
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |>
+  ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean,
+                               fill=forcats::as_factor(year))) +
+  ggplot2::geom_point(shape=21,color="black") +
+  #ggplot2::geom_line(color="red") +
+  ggplot2::geom_smooth(method = "lm") +
+  ggplot2::facet_wrap(~year,scales = "free")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(fill="")
+
 
 # Entrada dos dados -------------------------------------------------------
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
+
 mapa <- geobr::read_state(showProgress = FALSE)
+
+get_contorno <- function(indice, lista){
+  obj <- lista |> purrr::pluck(indice) |> as.matrix() |>
+    as.data.frame()
+  return(obj)
+}
+contorno <- purrr::map_dfr(1:27, get_contorno, lista=mapa$geom) |>
+  dplyr::filter(V1 < -33) |>
+  dplyr::filter(!(V1 < -38.5 & V1 > -39 & V2>-20 & V2 < -16))
+
+names(contorno) <- c("X","Y")
+plot(contorno)
 
 # Definição das funções ---------------------------------------------------
 def_pol <- function(x, y, pol){
@@ -138,6 +187,7 @@ for(ano in 2015:2020){
                         lty=2) +
     gghighlight::gghighlight(n=2, beta_line > q3_oco2,
                              unhighlighted_params = list(
+                               color = "darkgray",
                                fill = "lightgray")) +
     ggplot2::theme_minimal()
 
@@ -190,8 +240,13 @@ for(ano in 2015:2020){
   x<-oco2_aux$longitude
   y<-oco2_aux$latitude
   dis <- .1 #Distância entre pontos
-  grid <- expand.grid(X=seq(min(x),max(x),dis), Y=seq(min(y),max(y),dis))
+  grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
+                      Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
   sp::gridded(grid) = ~ X + Y
+
+
+  flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom, gradeado = grid)
+  flag_br <- apply(flag, 1, sum) != 0
 
   # Krigando
   ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta,
@@ -201,15 +256,6 @@ for(ano in 2015:2020){
                         debug.level=-1,
   )
 
-  ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
-                        block=c(0,0),
-                        nsim=0,
-                        na.action=na.pass,
-                        debug.level=-1,
-  )
-
-  flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom, gradeado = grid)
-  flag_br <- apply(flag, 1, sum) != 0
 
   krigagem_beta <- tibble::as_tibble(ko_beta) |>
     tibble::add_column(flag_br) |>
@@ -227,6 +273,13 @@ for(ano in 2015:2020){
   dev.off()
 
 
+  ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
+                        block=c(0,0),
+                        nsim=0,
+                        na.action=na.pass,
+                        debug.level=-1,
+  )
+
   krigagem_anomalia <- tibble::as_tibble(ko_anom) |>
     tibble::add_column(flag_br) |>
     dplyr::filter(flag_br) |>
@@ -242,6 +295,49 @@ for(ano in 2015:2020){
   print(krigagem_anomalia)
   dev.off()
 }
+
+
+
+# histogramas_ano ---------------------------------------------------------
+
+
+beta_ano<-function(ano){
+  oco2_nest <- oco2_br_trend |>
+    dplyr::filter(year == ano) |>
+    tibble::as_tibble() |>
+    dplyr::mutate(quarter = lubridate::quarter(data),
+                  quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
+                    starts_with("flag"),
+                    names_to = "region",
+                    values_to = "flag",
+                  ) |>
+    dplyr::filter(flag) |>
+    dplyr::mutate(region = stringr::str_remove(region,"flag_")) |>
+    dplyr::group_by(region, longitude, latitude, dia) |>
+    dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |>
+    dplyr::mutate(
+      regi = region,
+      id_time = dia
+    ) |>
+    dplyr::group_by(region, latitude, longitude) |>
+    tidyr::nest()
+
+  return(oco2_nest |>
+    dplyr::mutate(
+      beta_line = purrr::map(data,linear_reg, output="beta1"),
+      n_obs = purrr::map(data,linear_reg, output="n")
+    ))
+}
+
+anos<-2015:2020
+saidona <- purrr::map_dfr(anos, beta_ano, .id="anos")
+
+saidona <- saidona |>
+  dplyr::mutate(anos = as.numeric(anos)+2014 )
+
+
+
+
 
 
 # validação cruzada -------------------------------------------------------
