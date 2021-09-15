@@ -333,10 +333,42 @@ anos<-2015:2020
 saidona <- purrr::map_dfr(anos, beta_ano, .id="anos")
 
 saidona <- saidona |>
-  dplyr::mutate(anos = as.numeric(anos)+2014 )
+  dplyr::mutate(anos = forcats::as_factor(as.numeric(anos)+2014 ))
+
+dplyr::glimpse(saidona)
 
 
+saidona |>
+  ggplot2::ggplot(ggplot2::aes(x=beta_line)) +
+  ggplot2::geom_histogram()
 
+media <- saidona |>
+  dplyr::filter(n_obs > 5) |>
+  tidyr::unnest(cols = c(beta_line)) |>
+  dplyr::select(beta_line, anos) |>
+  dplyr::ungroup() |>
+  dplyr::pull(beta_line) |>
+  mean()
+
+saidona |>
+  dplyr::filter(n_obs > 5) |>
+  tidyr::unnest(cols = c(beta_line)) |>
+  dplyr::select(beta_line, anos) |>
+  dplyr::ungroup() |>
+  ggplot2::ggplot(
+  ggplot2::aes(x = beta_line, y = anos, fill=anos)) +
+  ggridges::geom_density_ridges(color="transparent", alpha=.6,
+                                scale = 3, rel_min_height = 0.01) +
+  ggplot2::scale_fill_viridis_d() +
+  ggplot2::labs(
+    x = "βpixel",
+    y = "Years"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = 'none',axis.text = ggplot2::element_text(size = 10)
+  ) +
+  ggplot2::geom_vline(xintercept = media)
 
 
 
