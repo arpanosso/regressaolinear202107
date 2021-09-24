@@ -4,11 +4,47 @@
 # Keelin curve nacional de 2015 a 2015 e dentro de cada faixa de cada anos
 # colocar o beta embaixo
 
-#
+# Adicionar o mapa do Brasil
+# com os gráficos Puxando mostrando as regressões subindo, descendo e não mudando.
+# para discutir.
+
+# CO2 NOOA ----------------------------------------------------------------
+source("R/meu-tema.R")
+
+url <- "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.txt"
+co2_nooa <- read.table(url, skip = 49, h=FALSE)
+co2_nooa |> names() <- c("year","month","day","decimal",
+                         "CO2_ppm","n_days","year_ago_1","years_ago_10","since_1800")
+co2_nooa <- co2_nooa |>
+  dplyr::mutate(
+    date = lubridate::make_date(year = year, month = month, day = day)
+  )
+tail(co2_nooa)
+dplyr::glimpse(co2_nooa)
+co2_nooa |>
+  dplyr::filter(year >= 2015, year <=2020) |>
+  dplyr::mutate(dia = difftime(date,"2014-01-09", units = "days")) |>
+  ggplot2::ggplot(ggplot2::aes(x=dia, y=CO2_ppm)) +
+  ggplot2::geom_point(shape=21,color="black",fill="gray") +
+  ggplot2::geom_line(color="red") +
+  ggplot2::geom_smooth(method = "lm") +
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::theme_bw()
+
+co2_nooa |>
+  dplyr::filter(year %in% 2015:2016) |>
+  dplyr::mutate(dia = difftime(date,"2014-01-09", units = "days")) |>
+  dplyr::group_by(year, day) |>
+  ggplot2::ggplot(ggplot2::aes(x=dia, y=CO2_ppm)) +
+  ggplot2::geom_point() +
+  ggplot2::geom_smooth(method = "lm") +
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::theme_bw()
 
 
-# Gráfico Keelin ----------------------------------------------------------
-
+# Gráfico Keeling ----------------------------------------------------------
 "data/oco2.rds" |>
   readr::read_rds() |>
   dplyr::mutate(
@@ -26,14 +62,66 @@
   ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean,
                                fill=forcats::as_factor(year))) +
   ggplot2::geom_point(shape=21,color="black") +
-  #ggplot2::geom_line(color="red") +
+  ggplot2::geom_line(color="red") +
   ggplot2::geom_smooth(method = "lm") +
   ggplot2::facet_wrap(~year,scales = "free")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+     label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(fill="")
+
+"data/oco2.rds" |>
+  readr::read_rds() |>
+  dplyr::mutate(
+    xco2 = xco2_moles_mole_1*1e06,
+    data = lubridate::ymd_hms(time_yyyymmddhhmmss),
+    year = lubridate::year(data),
+    month = lubridate::month(data),
+    day = lubridate::day(data),
+    dia = difftime(data,"2014-01-09", units = "days"),
+    day_week = lubridate::wday(data),
+    month_year = lubridate::make_date(year, month, 1) ) |>
+  dplyr::filter(year %in% 2020) |>
+  dplyr::group_by(year, dia) |>
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |>
+  ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean)) +
+  ggplot2::geom_point(shape=21,color="black") +
+  #ggplot2::geom_line(color="red") +
+  ggplot2::geom_smooth(method = "lm") +
+  #ggplot2::facet_wrap(~year,scales = "free")+
   ggpubr::stat_regline_equation(ggplot2::aes(
     label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw() +
   ggplot2::labs(fill="")
 
+
+# Limear model por ano ----------------------------------------------------
+anos <- 2015:2020
+dados <- "data/oco2.rds" |>
+  readr::read_rds() |>
+  dplyr::mutate(
+    xco2 = xco2_moles_mole_1*1e06,
+    data = lubridate::ymd_hms(time_yyyymmddhhmmss),
+    year = lubridate::year(data),
+    month = lubridate::month(data),
+    day = lubridate::day(data),
+    dia = difftime(data,"2014-01-09", units = "days"),
+    day_week = lubridate::wday(data),
+    month_year = lubridate::make_date(year, month, 1))
+
+x <- dados |>
+  dplyr::filter(year == 2015) |>
+  dplyr::group_by(year, dia) |>
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |>
+  dplyr::pull(dia)
+
+y <- dados |>
+  dplyr::filter(year == 2015) |>
+  dplyr::group_by(year, dia) |>
+  dplyr::summarise(xco2_mean = mean(xco2, na.rm =TRUE)) |>
+  dplyr::pull(xco2_mean)
+
+lm(y~x)
 
 # Entrada dos dados -------------------------------------------------------
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
@@ -299,8 +387,6 @@ for(ano in 2015:2020){
 
 
 # histogramas_ano ---------------------------------------------------------
-
-
 beta_ano<-function(ano){
   oco2_nest <- oco2_br_trend |>
     dplyr::filter(year == ano) |>
@@ -371,6 +457,42 @@ saidona |>
   ggplot2::geom_vline(xintercept = media)
 
 
+
+# Mapa da figura 01 -------------------------------------------------------
+br <- geobr::read_country(showProgress = FALSE)
+
+oco2 <- "data/oco2.rds" |>
+  readr::read_rds() |>
+  dplyr::mutate(
+    xco2 = xco2_moles_mole_1*1e06,
+    data = lubridate::ymd_hms(time_yyyymmddhhmmss),
+    year = lubridate::year(data),
+    month = lubridate::month(data),
+    day = lubridate::day(data),
+    dia = difftime(data,"2014-01-09", units = "days"),
+    day_week = lubridate::wday(data),
+    month_year = lubridate::make_date(year, month, 1) )
+
+dplyr::glimpse(oco2)
+poligono <- br$geom |> purrr::pluck(1) |>
+  as.matrix()
+
+br |>
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
+                   size=.15, show.legend = FALSE)+
+  tema_mapa() +
+  ggplot2::geom_point(data=oco2 |>
+                        dplyr::sample_n(1000) |>
+                        # dplyr::filter(year == 2015) |>
+                        dplyr::mutate(flag =
+                                        def_pol(longitude,latitude,
+                                                poligono)) |>
+                        dplyr::filter(flag),
+                      ggplot2::aes(x=longitude,y=latitude),
+                      shape=3,
+                      col="red",
+                      alpha=0.2)
 
 # validação cruzada -------------------------------------------------------
 validacao_cruzada <- function(variograma, form, dados, sill=.5, range=8, nugget=.1){
