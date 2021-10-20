@@ -9,6 +9,7 @@
 # para discutir.
 
 # CO2 NOOA ----------------------------------------------------------------
+library(tidyverse)
 source("R/meu-tema.R")
 
 url <- "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.txt"
@@ -33,7 +34,7 @@ co2_nooa |>
   ggplot2::theme_bw()
 
 co2_nooa |>
-  dplyr::filter(year %in% 2015:2016) |>
+  dplyr::filter(year %in% 2016:2017) |>
   dplyr::mutate(dia = difftime(date,"2014-01-09", units = "days")) |>
   dplyr::group_by(year, day) |>
   ggplot2::ggplot(ggplot2::aes(x=dia, y=CO2_ppm)) +
@@ -53,7 +54,14 @@ co2_nooa |>
     year = lubridate::year(data),
     month = lubridate::month(data),
     day = lubridate::day(data),
-    dia = difftime(data,"2014-01-09", units = "days"),
+    dia = case_when(
+      year == 2015 ~ difftime(data,"2015-01-01", units = "days"),
+      year == 2016 ~ difftime(data,"2016-01-01", units = "days"),
+      year == 2017 ~ difftime(data,"2017-01-01", units = "days"),
+      year == 2018 ~ difftime(data,"2018-01-01", units = "days"),
+      year == 2019 ~ difftime(data,"2019-01-01", units = "days"),
+      year == 2020 ~ difftime(data,"2020-01-01", units = "days"),
+    ),
     day_week = lubridate::wday(data),
     month_year = lubridate::make_date(year, month, 1) ) |>
   dplyr::filter(year %in% 2015:2020) |>
@@ -62,11 +70,11 @@ co2_nooa |>
   ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean,
                                fill=forcats::as_factor(year))) +
   ggplot2::geom_point(shape=21,color="black") +
-  ggplot2::geom_line(color="red") +
+  # ggplot2::geom_line(color="red") +
   ggplot2::geom_smooth(method = "lm") +
   ggplot2::facet_wrap(~year,scales = "free")+
-  ggpubr::stat_regline_equation(ggplot2::aes(
-     label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  # ggpubr::stat_regline_equation(ggplot2::aes(
+  #    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw() +
   ggplot2::labs(fill="")
 
@@ -161,7 +169,7 @@ linear_reg <- function(df, output="beta1"){
 
   # Definindo o modelo
   if(output=="beta1"){
-    return(beta_1)
+    return(beta_1*365) # <-------------------- BETA LINE POR 365
   }
 
   # Salvando o valor P
@@ -460,7 +468,6 @@ saidona |>
 
 # Mapa da figura 01 -------------------------------------------------------
 br <- geobr::read_country(showProgress = FALSE)
-
 oco2 <- "data/oco2.rds" |>
   readr::read_rds() |>
   dplyr::mutate(
@@ -473,26 +480,29 @@ oco2 <- "data/oco2.rds" |>
     day_week = lubridate::wday(data),
     month_year = lubridate::make_date(year, month, 1) )
 
-dplyr::glimpse(oco2)
-poligono <- br$geom |> purrr::pluck(1) |>
-  as.matrix()
+gridinho <- oco2 |> dplyr::select(longitude, latitude)
+names(gridinho) <- c("X", "Y")
+flag <- purrr::map_dfc(1:27,
+                       get_pol_in_pol,
+                       lista=mapa$geom,
+                       gradeado = gridinho)
+flag_br <- apply(flag, 1, sum) != 0
+
+oco2$flag <- flag_br
 
 br |>
   ggplot2::ggplot() +
   ggplot2::geom_sf(fill="#2D3E50", color="#FEBF57",
-                   size=.15, show.legend = FALSE)+
+                   size=.15, show.legend = FALSE) +
   tema_mapa() +
-  ggplot2::geom_point(data=oco2 |>
-                        dplyr::sample_n(1000) |>
-                        # dplyr::filter(year == 2015) |>
-                        dplyr::mutate(flag =
-                                        def_pol(longitude,latitude,
-                                                poligono)) |>
-                        dplyr::filter(flag),
+  ggplot2::geom_point(data= oco2 |>
+                        dplyr::filter(flag) |>
+                        dplyr::sample_n(1000),
                       ggplot2::aes(x=longitude,y=latitude),
                       shape=3,
                       col="red",
                       alpha=0.2)
+
 
 # validação cruzada -------------------------------------------------------
 validacao_cruzada <- function(variograma, form, dados, sill=.5, range=8, nugget=.1){
@@ -546,3 +556,66 @@ for(j in 1:3){
 ########################################################
 m.nc <- fit.variogram(v.nc,vgm(patamar,"Sph",alcance,epepita)) # com valores iniciais de C0, C1 e a
 
+
+# Raster - Carlos Silva ---------------------------------------------------
+
+# https://www.neonscience.org/resources/learning-hub/tutorials/raster-data-r
+library(raster)
+library(rgdal)
+library(ggplot2)
+library(dplyr)
+
+# buscando informações dO RASTER
+
+GDALinfo("raster/Burned_BR_2015.tif")
+
+
+# vamos ler o raster
+
+burned_BR_2015 <- raster("raster/Burned_BR_2015.tif")
+plot(burned_BR_2015)
+image(burned_BR_2015)
+summary(burned_BR_2015)
+
+memory.limit()
+# memory.limit(size=5000)
+burned_BR_2015_df <- as.data.frame(burned_BR_2015, xy=TRUE)
+burned_BR_2015_df <- burned_BR_2015_df |>
+  filter(!is.nan(Burned_BR_2015))
+
+ggplot() +
+  geom_raster(data = burned_BR_2015_df,
+              aes(x = x, y = y, fill = Burned_BR_2015)) +
+  scale_fill_viridis_c() +
+  coord_quickmap() +
+  theme_minimal()
+
+
+
+burned_BR_2015_df |>
+  ggplot(aes(x=Burned_BR_2015)) +
+  geom_histogram(bins=30,
+                 color="black",
+                 fill="orange")
+
+
+# https://www.neonscience.org/resources/learning-hub/tutorials/dc-shapefile-attributes-r
+library(rgdal)
+library(sp)
+library(raster)
+burned_BR_2015 <- readOGR(
+  dsn="raster",
+  layer="Burned_BR_2015",
+  verbose=FALSE
+)
+class(burned_BR_2015)
+crs(burned_BR_2015)
+extent(burned_BR_2015)
+burned_BR_2015@data
+summary(burned_BR_2015)
+
+
+df <- burned_BR_2015@data
+names(df)
+df |>
+  filter("Id" == 126)
