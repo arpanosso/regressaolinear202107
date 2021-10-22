@@ -131,6 +131,30 @@ y <- dados |>
 
 lm(y~x)
 
+
+# Figura Artigo mapa ------------------------------------------------------
+
+states <- geobr::read_state(showProgress = FALSE)
+regiao <- geobr::read_region(showProgress = FALSE)
+br <- geobr::read_country(showProgress = FALSE)
+
+br |>
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(fill="white", color="black",
+                   size=.15, show.legend = FALSE) +
+  ggplot2::theme(
+    panel.background = ggplot2::element_rect(color="black",fill = "white"),
+    panel.grid.major = ggplot2::element_line(color="gray",linetype = 3))+
+  ggspatial::annotation_scale(
+    location="bl",
+    height = ggplot2::unit(0.2,"cm")) +
+  ggspatial::annotation_north_arrow(
+    location="tr",
+    style = ggspatial::north_arrow_nautical,
+    height = ggplot2::unit(1.5,"cm"),
+    width =  ggplot2::unit(1.5,"cm"))
+
+
 # Entrada dos dados -------------------------------------------------------
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
 
@@ -614,8 +638,65 @@ extent(burned_BR_2015)
 burned_BR_2015@data
 summary(burned_BR_2015)
 
+#raster::geom(burned_BR_2015)
+#ggplot2::fortify(burned_BR_2015)
+df_raster <- as.data.frame(as(
+  as(burned_BR_2015,"SpatialLinesDataFrame"),
+  "SpatialPointsDataFrame"))
+names(df_raster)
+library(tidyverse)
+dados<-df_raster |>
+  group_by(Lines.ID) |>
+  summarise(Area = mean(Area,na.rm=TRUE),
+            Long = mean(coords.x1,na.rm=TRUE),
+            Lat = mean(coords.x2,na.rm=TRUE))
+
+dados |>
+  summarise(Area = mean(Area,na.rm=TRUE))
+
 
 df <- burned_BR_2015@data
 names(df)
 df |>
   filter("Id" == 126)
+
+layers_br<- c("Burned_BR_2015","Burned_BR_2016","Burned_BR_2017",
+              "Burned_BR_2018","Burned_BR_2019","Burned_BR_2020")
+for(i in 1:length(layers_br)){
+  burned_BR <- readOGR(
+    dsn="raster",
+    layer=layers_br[i],
+    verbose=FALSE
+  )
+  print(layers_br[i])
+  print(summary(burned_BR))
+  cat("\n")
+
+  burned_BR@data
+  burned_BR$x
+}
+
+areas <- c(529.15,523.8,637.6,367.71,657.0,737.9)
+betas <- c(5.33, 3.31, 3.04, 3.78, 4.56, 6.46)
+beta_mundo <- c(2.01, 1.10, 0.84, 1.57, 1.20, 1.61)
+plot(betas ~ areas)
+mod_reg<-lm(betas~areas)
+summary.lm(mod_reg)
+abline(mod_reg)
+
+
+plot(betas ~ beta_mundo)
+mod_reg<-lm(betas~beta_mundo)
+summary.lm(mod_reg)
+abline(mod_reg)
+cor(data.frame(betas,beta_mundo,areas))
+cor.test(betas,beta_mundo)
+
+cor.test(betas,areas)
+
+
+# Interpolação _FOGO ------------------------------------------------------
+
+
+
+# Interpolar com a mesma resolução do xCO2 para correlação digital
