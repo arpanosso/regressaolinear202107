@@ -1,15 +1,14 @@
-# Adicionar o beta nacional de cada ano inserido nos mapas valor numéricos da
-# derivada
-
-# Keelin curve nacional de 2015 a 2015 e dentro de cada faixa de cada anos
-# colocar o beta embaixo
-
 # Adicionar o mapa do Brasil
 # com os gráficos Puxando mostrando as regressões subindo, descendo e não mudando.
 # para discutir.
 
-# CO2 NOOA ----------------------------------------------------------------
 library(tidyverse)
+library(rgdal)
+library(sp)
+library(raster)
+
+# CO2 NOOA ----------------------------------------------------------------
+
 source("R/meu-tema.R")
 
 url <- "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.txt"
@@ -242,9 +241,11 @@ linear_reg <- function(df, output="beta1"){
 form_beta<-beta_line~1
 form_anom<-anomaly~1
 form_index<-beta_index~1
+form_area<-Area~1
 
 # Criando o banco de dados
 for(ano in 2015:2020){
+  # Criando banco de dados aninhado por ano
   oco2_nest <- oco2_br_trend |>
     dplyr::filter(year == ano) |>
     tibble::as_tibble() |>
@@ -265,6 +266,7 @@ for(ano in 2015:2020){
     dplyr::group_by(region, latitude, longitude) |>
     tidyr::nest()
 
+  # Adicionando as colunas da regressão linear
   oco2_nest <- oco2_nest |>
     dplyr::mutate(
       beta_line = purrr::map(data,linear_reg, output="beta1"),
@@ -275,6 +277,7 @@ for(ano in 2015:2020){
       #hist = purrr::map(data,linear_reg, output="hist")
     )
 
+  # Filtrando os pontos com n > 7
   oco2_aux <- oco2_nest |>
     dplyr::filter(n_obs > 7) |>
     tidyr::unnest(cols = c(beta_line, partial)) |>
@@ -296,6 +299,34 @@ for(ano in 2015:2020){
       beta_index =  ifelse(beta_line <=q3_oco2, 0, 1)
     )
 
+  # trabalhando com os dados de queimadas
+  burned_BR <- readOGR(
+    dsn="raster",
+    layer=paste0("Burned_BR_",ano),
+    verbose=FALSE
+  )
+  df_raster <- as.data.frame(as(
+    as(burned_BR,"SpatialLinesDataFrame"),
+    "SpatialPointsDataFrame"))
+
+  df_raster_aux<-df_raster |>
+    group_by(Lines.ID) |>
+    summarise(Area = mean(Area,na.rm=TRUE)/1000,
+              Long = mean(coords.x1,na.rm=TRUE),
+              Lat = mean(coords.x2,na.rm=TRUE)) |>
+    dplyr::select(Long, Lat, Area)
+  names(oco2_aux)
+
+
+  x <- oco2_aux$longitude[1]
+  y <- oco2_aux$latitude[1]
+
+  distancia = sqrt((x-df_raster_aux$Long)^2 + (y-df_raster_aux$Lat)^2)
+
+  min(distancia)
+
+
+    # Craindo os gráficos
   histograma_beta <- oco2_aux |>
     ggplot2::ggplot(ggplot2::aes(x=beta_line)) +
     ggplot2::geom_histogram(bins=30,
@@ -334,7 +365,9 @@ for(ano in 2015:2020){
   print(histograma_anomaly)
   dev.off()
 
+  # Definindo as coordenada para o objeto sp
   sp::coordinates(oco2_aux)=~ longitude+latitude
+  # sp::coordinates(df_raster_aux)= ~Long + Lat
 
   # Semivariograma para Beta
   vari_beta <- gstat::variogram(form_beta, data=oco2_aux)
@@ -356,10 +389,23 @@ for(ano in 2015:2020){
   print(plot(vari_anom, model=m_anom, col=1, pl=F, pch=16))
   dev.off()
 
+  # Semivariograma para queimada
+  # vari_area <- gstat::variogram(form_area, data=df_raster_aux)
+  # m_area <- gstat::fit.variogram(vari_area,fit.method = 7,
+  #                                gstat::vgm(6, "Sph", 8, 1))
+  #
+  # png(paste0("imagens/variograma_burned_",ano,".png"),
+  #     width = 1024, height = 768)
+  # print(plot(vari_area, model=m_area, col=1, pl=F, pch=16))
+  # dev.off()
+
+
+
+
   # Refinando o gradeado
   x<-oco2_aux$longitude
   y<-oco2_aux$latitude
-  dis <- .1 #Distância entre pontos
+  dis <- .55 #Distância entre pontos
   grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
                       Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
   sp::gridded(grid) = ~ X + Y
@@ -416,8 +462,6 @@ for(ano in 2015:2020){
   dev.off()
 }
 
-
-
 # histogramas_ano ---------------------------------------------------------
 beta_ano<-function(ano){
   oco2_nest <- oco2_br_trend |>
@@ -441,10 +485,10 @@ beta_ano<-function(ano){
     tidyr::nest()
 
   return(oco2_nest |>
-    dplyr::mutate(
-      beta_line = purrr::map(data,linear_reg, output="beta1"),
-      n_obs = purrr::map(data,linear_reg, output="n")
-    ))
+           dplyr::mutate(
+             beta_line = purrr::map(data,linear_reg, output="beta1"),
+             n_obs = purrr::map(data,linear_reg, output="n")
+           ))
 }
 
 anos<-2015:2020
@@ -474,7 +518,7 @@ saidona |>
   dplyr::select(beta_line, anos) |>
   dplyr::ungroup() |>
   ggplot2::ggplot(
-  ggplot2::aes(x = beta_line, y = anos, fill=anos)) +
+    ggplot2::aes(x = beta_line, y = anos, fill=anos)) +
   ggridges::geom_density_ridges(color="transparent", alpha=.6,
                                 scale = 3, rel_min_height = 0.01) +
   ggplot2::scale_fill_viridis_d() +
@@ -624,9 +668,8 @@ burned_BR_2015_df |>
 
 
 # https://www.neonscience.org/resources/learning-hub/tutorials/dc-shapefile-attributes-r
-library(rgdal)
-library(sp)
-library(raster)
+layers_br<- c("Burned_BR_2015","Burned_BR_2016","Burned_BR_2017",
+              "Burned_BR_2018","Burned_BR_2019","Burned_BR_2020")
 burned_BR_2015 <- readOGR(
   dsn="raster",
   layer="Burned_BR_2015",
@@ -660,8 +703,6 @@ names(df)
 df |>
   filter("Id" == 126)
 
-layers_br<- c("Burned_BR_2015","Burned_BR_2016","Burned_BR_2017",
-              "Burned_BR_2018","Burned_BR_2019","Burned_BR_2020")
 for(i in 1:length(layers_br)){
   burned_BR <- readOGR(
     dsn="raster",
