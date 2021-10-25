@@ -44,7 +44,7 @@ co2_nooa |>
   ggplot2::theme_bw()
 
 
-# Gráfico Keeling ----------------------------------------------------------
+7# Gráfico Keeling ----------------------------------------------------------
 "data/oco2.rds" |>
   readr::read_rds() |>
   dplyr::mutate(
@@ -100,7 +100,6 @@ co2_nooa |>
     label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw() +
   ggplot2::labs(fill="")
-
 
 # Limear model por ano ----------------------------------------------------
 anos <- 2015:2020
@@ -172,6 +171,29 @@ names(contorno) <- c("X","Y")
 plot(contorno)
 
 # Definição das funções ---------------------------------------------------
+get_coord <- function(x, y, type= "Long"){
+  df <- df_raster_aux |>
+    mutate(distancia = sqrt((x-Long)^2 + (y-Lat)^2)) |>
+    arrange(distancia) |>
+    slice(1)
+  if(type == "Long") return(as.numeric(df[,1]))
+  if(type == "Lat") return(as.numeric(df[,2]))
+  if(type == "Area") return(as.numeric(df[,3]))
+  if(type == "distancia") return(as.numeric(df[,4]))
+}
+
+
+
+get_coord_2 <- function(x, y, type= "Long"){
+  df <- ko_beta_aux |>
+    mutate(distancia = sqrt((x-X)^2 + (y-Y)^2)) |>
+    arrange(distancia) |>
+    slice(1)
+  if(type == "Long") return(as.numeric(df[,1]))
+  if(type == "Lat") return(as.numeric(df[,2]))
+  if(type == "Area") return(as.numeric(df[,3]))
+  if(type == "distancia") return(as.numeric(df[,4]))
+}
 def_pol <- function(x, y, pol){
   as.logical(sp::point.in.polygon(point.x = x,
                                   point.y = y,
@@ -241,7 +263,9 @@ linear_reg <- function(df, output="beta1"){
 form_beta<-beta_line~1
 form_anom<-anomaly~1
 form_index<-beta_index~1
-form_area<-Area~1
+
+
+# Craindo as imagens -----------------------------------------------------
 
 # Criando o banco de dados
 for(ano in 2015:2020){
@@ -311,22 +335,38 @@ for(ano in 2015:2020){
 
   df_raster_aux<-df_raster |>
     group_by(Lines.ID) |>
-    summarise(Area = mean(Area,na.rm=TRUE)/1000,
-              Long = mean(coords.x1,na.rm=TRUE),
-              Lat = mean(coords.x2,na.rm=TRUE)) |>
+    summarise(Area = mean(Area, na.rm=TRUE),
+              Long = mean(coords.x1, na.rm=TRUE),
+              Lat = mean(coords.x2, na.rm=TRUE)) |>
     dplyr::select(Long, Lat, Area)
-  names(oco2_aux)
 
+  longe_a <- lat_a <- area_a <- dist_a <- 0
 
-  x <- oco2_aux$longitude[1]
-  y <- oco2_aux$latitude[1]
+  for(j in 1:nrow(oco2_aux)){
+    x<-oco2_aux$longitude[j]
+    y<-oco2_aux$latitude[j]
+    longe_a[j]<-get_coord(x, y, 'Long')
+    lat_a[j]<-get_coord(x, y, 'Lat')
+    area_a[j]<-get_coord(x, y, 'Area')
+    dist_a[j]<-get_coord(x, y, 'distancia')
+  }
 
-  distancia = sqrt((x-df_raster_aux$Long)^2 + (y-df_raster_aux$Lat)^2)
+  oco2_aux$Long <- longe_a
+  oco2_aux$Lat <- lat_a
+  oco2_aux$Area <- area_a
+  oco2_aux$Dist <- dist_a
 
-  min(distancia)
+  plot <- oco2_aux |>
+    filter(Dist < 0.1, Area < 1000) |>
+    ggplot(aes(x=Area, y=beta_line)) +
+    geom_point() +
+    labs(title = ano)
 
+  png(paste0("imagens/plot_beta_burned",ano,".png"))
+  print(plot)
+  dev.off()
 
-    # Craindo os gráficos
+  # Craindo os gráficos
   histograma_beta <- oco2_aux |>
     ggplot2::ggplot(ggplot2::aes(x=beta_line)) +
     ggplot2::geom_histogram(bins=30,
@@ -405,7 +445,7 @@ for(ano in 2015:2020){
   # Refinando o gradeado
   x<-oco2_aux$longitude
   y<-oco2_aux$latitude
-  dis <- .55 #Distância entre pontos
+  dis <- .1 #Distância entre pontos
   grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
                       Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
   sp::gridded(grid) = ~ X + Y
@@ -438,7 +478,46 @@ for(ano in 2015:2020){
   print(krigagem_beta)
   dev.off()
 
+  # vamos pegar os de krigagem
+  ko_beta_aux <- tibble::as_tibble(ko_beta) |>
+    tibble::add_column(flag_br) |>
+    dplyr::filter(flag_br)
+  nrow(ko_beta_aux)
 
+  longe_a <- lat_a <- area_a <- dist_a <- 0
+
+  for(j in 1:nrow(ko_beta_aux)){
+    x<-ko_beta_aux$X[j]
+    y<-ko_beta_aux$Y[j]
+    longe_a[j]<-get_coord(x, y, 'Long')
+    lat_a[j]<-get_coord(x, y, 'Lat')
+    area_a[j]<-get_coord(x, y, 'Area')
+    dist_a[j]<-get_coord(x, y, 'distancia')
+    print(j)
+  }
+
+  ko_beta_aux$Long <- longe_a
+  ko_beta_aux$Lat <- lat_a
+  ko_beta_aux$Area <- area_a
+  ko_beta_aux$Dist <- dist_a
+
+
+  plot <- ko_beta_aux |>
+    filter(Dist < 0.05, Area < 10000, Area > 0) |>
+    ggplot(aes(x=Area, y=var1.pred)) +
+    geom_point() +
+    labs(title = ano)
+  print(plot)
+
+  ko_beta_aux |>
+    filter(Dist < 0.001, Area < 10000, Area > 0) |>
+    dplyr::select(Area, var1.pred) |>
+    cor()
+
+
+
+
+  # Anomalia
   ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
                         block=c(0,0),
                         nsim=0,
