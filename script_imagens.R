@@ -44,7 +44,7 @@ co2_nooa |>
   ggplot2::theme_bw()
 
 
-7# Gráfico Keeling ----------------------------------------------------------
+# Gráfico Keeling ----------------------------------------------------------
 "data/oco2.rds" |>
   readr::read_rds() |>
   dplyr::mutate(
@@ -134,6 +134,11 @@ lm(y~x)
 
 states <- geobr::read_state(showProgress = FALSE)
 regiao <- geobr::read_region(showProgress = FALSE)
+norte <- regiao$geom[1]
+nordeste <- regiao$geom[2]
+sudeste <- regiao$geom[3]
+sul <- regiao$geom[4]
+centro_oeste <- regiao$geom[5]
 br <- geobr::read_country(showProgress = FALSE)
 
 br |>
@@ -153,10 +158,21 @@ br |>
     width =  ggplot2::unit(1.5,"cm"))
 
 
+
+
+
+
+
+
 # Entrada dos dados -------------------------------------------------------
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
 
 mapa <- geobr::read_state(showProgress = FALSE)
+pol_norte <- regiao$geom |> purrr::pluck(1) |> as.matrix()
+pol_nordeste <- regiao$geom |> purrr::pluck(2) |> as.matrix()
+pol_sudeste <- regiao$geom |> purrr::pluck(3) |> as.matrix()
+pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
+pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
 
 get_contorno <- function(indice, lista){
   obj <- lista |> purrr::pluck(indice) |> as.matrix() |>
@@ -184,16 +200,17 @@ get_coord <- function(x, y, type= "Long"){
 
 
 
-get_coord_2 <- function(x, y, type= "Long"){
-  df <- ko_beta_aux |>
-    mutate(distancia = sqrt((x-X)^2 + (y-Y)^2)) |>
-    arrange(distancia) |>
-    slice(1)
-  if(type == "Long") return(as.numeric(df[,1]))
-  if(type == "Lat") return(as.numeric(df[,2]))
-  if(type == "Area") return(as.numeric(df[,3]))
-  if(type == "distancia") return(as.numeric(df[,4]))
-}
+# get_coord_2 <- function(x, y, type= "Long"){
+#   df <- ko_beta_aux |>
+#     mutate(distancia = sqrt((x-X)^2 + (y-Y)^2)) |>
+#     arrange(distancia) |>
+#     slice(1)
+#   if(type == "Long") return(as.numeric(df[,1]))
+#   if(type == "Lat") return(as.numeric(df[,2]))
+#   if(type == "Area") return(as.numeric(df[,3]))
+#   if(type == "distancia") return(as.numeric(df[,4]))
+# }
+
 def_pol <- function(x, y, pol){
   as.logical(sp::point.in.polygon(point.x = x,
                                   point.y = y,
@@ -306,7 +323,7 @@ for(ano in 2015:2020){
     dplyr::filter(n_obs > 7) |>
     tidyr::unnest(cols = c(beta_line, partial)) |>
     dplyr::ungroup() |>
-    dplyr::select(longitude, latitude, beta_line, partial)
+    dplyr::select(region, longitude, latitude, beta_line, partial)
 
   q3_oco2 <- oco2_aux |> dplyr::pull(beta_line) |> quantile(.75)
   oco2_aux <- oco2_aux |>
@@ -358,8 +375,9 @@ for(ano in 2015:2020){
 
   plot <- oco2_aux |>
     filter(Dist < 0.1, Area < 1000) |>
-    ggplot(aes(x=Area, y=beta_line)) +
+    ggplot(aes(x=Area, y=beta_line, color=region)) +
     geom_point() +
+    facet_wrap(~region) +
     labs(title = ano)
 
   png(paste0("imagens/plot_beta_burned",ano,".png"))
@@ -484,6 +502,16 @@ for(ano in 2015:2020){
     dplyr::filter(flag_br)
   nrow(ko_beta_aux)
 
+  ko_beta_aux<-ko_beta_aux |>
+    mutate(
+      flag_norte = def_pol(X, Y, pol_norte),
+      flag_nordeste = def_pol(X, Y, pol_nordeste),
+      flag_centroeste = def_pol(X, Y, pol_centroeste),
+      flag_sudeste = def_pol(X, Y, pol_sudeste),
+      flag_sul = def_pol(X, Y, pol_sul)
+    )
+
+
   longe_a <- lat_a <- area_a <- dist_a <- 0
 
   for(j in 1:nrow(ko_beta_aux)){
@@ -493,7 +521,6 @@ for(ano in 2015:2020){
     lat_a[j]<-get_coord(x, y, 'Lat')
     area_a[j]<-get_coord(x, y, 'Area')
     dist_a[j]<-get_coord(x, y, 'distancia')
-    print(j)
   }
 
   ko_beta_aux$Long <- longe_a
