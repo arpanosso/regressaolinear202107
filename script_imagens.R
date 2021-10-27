@@ -496,54 +496,6 @@ for(ano in 2015:2020){
   print(krigagem_beta)
   dev.off()
 
-  # vamos pegar os de krigagem
-  ko_beta_aux <- tibble::as_tibble(ko_beta) |>
-    tibble::add_column(flag_br) |>
-    dplyr::filter(flag_br)
-  nrow(ko_beta_aux)
-
-  ko_beta_aux<-ko_beta_aux |>
-    mutate(
-      flag_norte = def_pol(X, Y, pol_norte),
-      flag_nordeste = def_pol(X, Y, pol_nordeste),
-      flag_centroeste = def_pol(X, Y, pol_centroeste),
-      flag_sudeste = def_pol(X, Y, pol_sudeste),
-      flag_sul = def_pol(X, Y, pol_sul)
-    )
-
-
-  longe_a <- lat_a <- area_a <- dist_a <- 0
-
-  for(j in 1:nrow(ko_beta_aux)){
-    x<-ko_beta_aux$X[j]
-    y<-ko_beta_aux$Y[j]
-    longe_a[j]<-get_coord(x, y, 'Long')
-    lat_a[j]<-get_coord(x, y, 'Lat')
-    area_a[j]<-get_coord(x, y, 'Area')
-    dist_a[j]<-get_coord(x, y, 'distancia')
-  }
-
-  ko_beta_aux$Long <- longe_a
-  ko_beta_aux$Lat <- lat_a
-  ko_beta_aux$Area <- area_a
-  ko_beta_aux$Dist <- dist_a
-
-
-  plot <- ko_beta_aux |>
-    filter(Dist < 0.05, Area < 10000, Area > 0) |>
-    ggplot(aes(x=Area, y=var1.pred)) +
-    geom_point() +
-    labs(title = ano)
-  print(plot)
-
-  ko_beta_aux |>
-    filter(Dist < 0.001, Area < 10000, Area > 0) |>
-    dplyr::select(Area, var1.pred) |>
-    cor()
-
-
-
-
   # Anomalia
   ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
                         block=c(0,0),
@@ -566,6 +518,69 @@ for(ano in 2015:2020){
       width = 1024, height = 768)
   print(krigagem_anomalia)
   dev.off()
+
+
+  # vamos pegar os de krigagem
+  ko_beta_aux <- tibble::as_tibble(ko_beta) |>
+    tibble::add_column(flag_br) |>
+    dplyr::filter(flag_br)
+
+  ko_anom_aux <- tibble::as_tibble(ko_anom) |>
+    tibble::add_column(flag_br) |>
+    dplyr::filter(flag_br)
+
+  ko_aux <- ko_beta_aux
+  ko_aux$Beta <- ko_beta_aux$var1.pred
+  ko_aux$Anom <- ko_anom_aux$var1.pred
+
+  ko_aux<-ko_beta_aux |>
+    mutate(
+      flag_norte = def_pol(X, Y, pol_norte),
+      flag_nordeste = def_pol(X, Y, pol_nordeste),
+      flag_centroeste = def_pol(X, Y, pol_centroeste),
+      flag_sudeste = def_pol(X, Y, pol_sudeste),
+      flag_sul = def_pol(X, Y, pol_sul)
+    )
+
+  longe_a <- lat_a <- area_a <- dist_a <- 0
+
+  for(j in 1:nrow(ko_beta_aux)){
+    x<-ko_beta_aux$X[j]
+    y<-ko_beta_aux$Y[j]
+    longe_a[j]<-get_coord(x, y, 'Long')
+    lat_a[j]<-get_coord(x, y, 'Lat')
+    area_a[j]<-get_coord(x, y, 'Area')
+    dist_a[j]<-get_coord(x, y, 'distancia')
+  }
+
+  ko_aux$Long <- longe_a
+  ko_aux$Lat <- lat_a
+  ko_aux$Area <- area_a
+  ko_aux$Dist <- dist_a
+  ko_aux$Beta <- ko_beta_aux$var1.pred
+  ko_aux$Anom <- ko_anom_aux$var1.pred
+
+  names(ko_aux)
+
+
+  plot <- ko_aux |>
+    filter(Dist < 0.5, Area < 10000, Area > 0) |>
+    ggplot(aes(x=Area, y=var1.pred)) +
+    geom_point() +
+    labs(title = ano)
+  print(plot)
+
+  plot <- ko_aux |>
+    #filter(Dist < 0.5, Area < 10000, Area > 0) |>
+    ggplot(aes(x=Beta, y=Anom)) +
+    geom_point() +
+    labs(title = ano)
+  print(plot)
+
+  ko_beta_aux |>
+    filter(Dist < 0.001, Area < 10000, Area > 0) |>
+    dplyr::select(Area, var1.pred) |>
+    cor()
 }
 
 # histogramas_ano ---------------------------------------------------------
