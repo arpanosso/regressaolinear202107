@@ -1,16 +1,14 @@
 # Adicionar o mapa do Brasil
 # com os gráficos Puxando mostrando as regressões subindo, descendo e não mudando.
 # para discutir.
-
 library(tidyverse)
 library(rgdal)
 library(sp)
 library(raster)
 
 # CO2 NOOA ----------------------------------------------------------------
-
 source("R/meu-tema.R")
-
+source("R/minhas-funcoes.R")
 url <- "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.txt"
 co2_nooa <- read.table(url, skip = 49, h=FALSE)
 co2_nooa |> names() <- c("year","month","day","decimal",
@@ -19,8 +17,10 @@ co2_nooa <- co2_nooa |>
   dplyr::mutate(
     date = lubridate::make_date(year = year, month = month, day = day)
   )
+
 tail(co2_nooa)
 dplyr::glimpse(co2_nooa)
+
 co2_nooa |>
   dplyr::filter(year >= 2015, year <=2020) |>
   dplyr::mutate(dia = difftime(date,"2014-01-09", units = "days")) |>
@@ -101,7 +101,7 @@ co2_nooa |>
   ggplot2::theme_bw() +
   ggplot2::labs(fill="")
 
-# Limear model por ano ----------------------------------------------------
+# Linear model por ano ----------------------------------------------------
 anos <- 2015:2020
 dados <- "data/oco2.rds" |>
   readr::read_rds() |>
@@ -131,16 +131,6 @@ lm(y~x)
 
 
 # Figura Artigo mapa ------------------------------------------------------
-
-states <- geobr::read_state(showProgress = FALSE)
-regiao <- geobr::read_region(showProgress = FALSE)
-norte <- regiao$geom[1]
-nordeste <- regiao$geom[2]
-sudeste <- regiao$geom[3]
-sul <- regiao$geom[4]
-centro_oeste <- regiao$geom[5]
-br <- geobr::read_country(showProgress = FALSE)
-
 br |>
   ggplot2::ggplot() +
   ggplot2::geom_sf(fill="white", color="black",
@@ -157,28 +147,9 @@ br |>
     height = ggplot2::unit(1.5,"cm"),
     width =  ggplot2::unit(1.5,"cm"))
 
-
-
-
-
-
-
-
 # Entrada dos dados -------------------------------------------------------
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
 
-mapa <- geobr::read_state(showProgress = FALSE)
-pol_norte <- regiao$geom |> purrr::pluck(1) |> as.matrix()
-pol_nordeste <- regiao$geom |> purrr::pluck(2) |> as.matrix()
-pol_sudeste <- regiao$geom |> purrr::pluck(3) |> as.matrix()
-pol_sul <- regiao$geom |> purrr::pluck(4) |> as.matrix()
-pol_centroeste<- regiao$geom |> purrr::pluck(5) |> as.matrix()
-
-get_contorno <- function(indice, lista){
-  obj <- lista |> purrr::pluck(indice) |> as.matrix() |>
-    as.data.frame()
-  return(obj)
-}
 contorno <- purrr::map_dfr(1:27, get_contorno, lista=mapa$geom) |>
   dplyr::filter(V1 < -33) |>
   dplyr::filter(!(V1 < -38.5 & V1 > -39 & V2>-20 & V2 < -16))
@@ -186,140 +157,62 @@ contorno <- purrr::map_dfr(1:27, get_contorno, lista=mapa$geom) |>
 names(contorno) <- c("X","Y")
 plot(contorno)
 
-# Definição das funções ---------------------------------------------------
-get_coord <- function(x, y, type= "Long"){
-  df <- df_raster_aux |>
-    mutate(distancia = sqrt((x-Long)^2 + (y-Lat)^2)) |>
-    arrange(distancia) |>
-    slice(1)
-  if(type == "Long") return(as.numeric(df[,1]))
-  if(type == "Lat") return(as.numeric(df[,2]))
-  if(type == "Area") return(as.numeric(df[,3]))
-  if(type == "distancia") return(as.numeric(df[,4]))
-}
-
-
-
-# get_coord_2 <- function(x, y, type= "Long"){
-#   df <- ko_beta_aux |>
-#     mutate(distancia = sqrt((x-X)^2 + (y-Y)^2)) |>
-#     arrange(distancia) |>
-#     slice(1)
-#   if(type == "Long") return(as.numeric(df[,1]))
-#   if(type == "Lat") return(as.numeric(df[,2]))
-#   if(type == "Area") return(as.numeric(df[,3]))
-#   if(type == "distancia") return(as.numeric(df[,4]))
-# }
-
-def_pol <- function(x, y, pol){
-  as.logical(sp::point.in.polygon(point.x = x,
-                                  point.y = y,
-                                  pol.x = pol[,1],
-                                  pol.y = pol[,2]))
-}
-
-get_pol_in_pol <- function(indice, lista, gradeado){
-  poligono <- lista |> purrr::pluck(indice) |> as.matrix()
-  flag <- def_pol(gradeado$X, gradeado$Y, poligono)
-  return(flag)
-}
-
-linear_reg <- function(df, output="beta1"){
-  # Modelo para cada pixel
-  modelo <- lm(xco2_mean ~ dia, data=df)
-  beta_1 <- c(summary(modelo)$coefficients[2])
-
-  # Definindo o modelo
-  if(output=="beta1"){
-    return(beta_1*365) # <-------------------- BETA LINE POR 365
-  }
-
-  # Salvando o valor P
-  if(output=="p_value"){
-    if(is.nan(beta_1)){
-      beta_1 <- 0
-      p <- 1
-    }else{
-      p <- summary(modelo)$coefficients[2,4]
-      if(is.nan(p)) p <- 1
-    }
-    return(p)
-  }
-
-  # Criando gráfico
-  if(output=="plot"){
-    plot <- df |>
-      ggplot2::ggplot(ggplot2::aes(x=dia,y=xco2_mean)) +
-      ggplot2::geom_point() +
-      ggplot2::theme_bw()
-    return(plot)
-  }
-  if(output=="hist"){
-    hist <- df |>
-      ggplot2::ggplot(ggplot2::aes(x=xco2_mean, y=..density..)) +
-      ggplot2::geom_histogram(bins=10, color="black", fill="lightgray") +
-      ggplot2::geom_density()+
-      ggplot2::theme_bw()
-    return(hist)
-  }
-
-  # Anomalia é o Xco2 do regional menos o Xco2 do pixel, melhor é o contrário.
-  if(output == "partial"){
-    partial <- df |>
-      dplyr::summarise(xco2 = mean(xco2_mean), na.mr=TRUE) |>
-      dplyr::pull(xco2)
-    return(partial)
-  }
-
-  if(output == "n"){
-    return(nrow(df))
-  }
-}
-
 # Definção das fórmulas para os semivariogramas
 form_beta<-beta_line~1
 form_anom<-anomaly~1
 form_index<-beta_index~1
 
-
 # Craindo as imagens -----------------------------------------------------
-
 # Criando o banco de dados
-for(ano in 2015:2020){
-  # Criando banco de dados aninhado por ano
-  oco2_nest <- oco2_br_trend |>
-    dplyr::filter(year == ano) |>
-    tibble::as_tibble() |>
-    dplyr::mutate(quarter = lubridate::quarter(data),
-                  quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
-                    starts_with("flag"),
-                    names_to = "region",
-                    values_to = "flag",
-                  ) |>
-    dplyr::filter(flag) |>
-    dplyr::mutate(region = stringr::str_remove(region,"flag_")) |>
-    dplyr::group_by(region, longitude, latitude, dia) |>
-    dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |>
-    dplyr::mutate(
-      regi = region,
-      id_time = dia
-    ) |>
-    dplyr::group_by(region, latitude, longitude) |>
-    tidyr::nest()
+# oco2_nest_total <- data.frame()
+# for(ano in 2015:2020){
+#   # Criando banco de dados aninhado por ano
+#   oco2_nest <- oco2_br_trend |>
+#     dplyr::filter(year == ano) |>
+#     tibble::as_tibble() |>
+#     dplyr::mutate(quarter = lubridate::quarter(data),
+#                   quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
+#                     starts_with("flag"),
+#                     names_to = "region",
+#                     values_to = "flag",
+#                   ) |>
+#     dplyr::filter(flag) |>
+#     dplyr::mutate(region = stringr::str_remove(region,"flag_")) |>
+#     dplyr::group_by(region, longitude, latitude, dia) |>
+#     dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |>
+#     dplyr::mutate(
+#       regi = region,
+#       id_time = dia
+#     ) |>
+#     dplyr::group_by(region, latitude, longitude) |>
+#     tidyr::nest()
+#
+#   # Adicionando as colunas da regressão linear
+#   oco2_nest <- oco2_nest |>
+#     dplyr::mutate(
+#       beta_line = purrr::map(data,linear_reg, output="beta1"),
+#       p_value = purrr::map(data,linear_reg, output="p_value"),
+#       partial = purrr::map(data,linear_reg, output="partial"),
+#       n_obs = purrr::map(data,linear_reg, output="n")
+#       #plot = purrr::map(data,linear_reg, output="plot"),
+#       #hist = purrr::map(data,linear_reg, output="hist")
+#     )
+#   oco2_nest$Ano <- ano
+#   oco2_nest <- oco2_nest |> relocate(Ano)
+#
+#   if( ano == 2015){
+#     oco2_nest_total <-  oco2_nest
+#   } else {
+#     oco2_nest_total <- rbind(oco2_nest_total, oco2_nest)
+#   }
+# }
+# readr::write_rds(oco2_nest_total,"data-raw/oco2_betanom.rds")
+oco2_betanom <- readr::read_rds("data-raw/oco2_betanom.rds")
 
-  # Adicionando as colunas da regressão linear
-  oco2_nest <- oco2_nest |>
-    dplyr::mutate(
-      beta_line = purrr::map(data,linear_reg, output="beta1"),
-      p_value = purrr::map(data,linear_reg, output="p_value"),
-      partial = purrr::map(data,linear_reg, output="partial"),
-      n_obs = purrr::map(data,linear_reg, output="n")
-      #plot = purrr::map(data,linear_reg, output="plot"),
-      #hist = purrr::map(data,linear_reg, output="hist")
-    )
-
-  # Filtrando os pontos com n > 7
-  oco2_aux <- oco2_nest |>
+for( ano in 2015:2020){
+# Filtrando os pontos com n > 7
+  oco2_aux <- oco2_betanom |>
+    dplyr::filter(Ano == ano) |>
     dplyr::filter(n_obs > 7) |>
     tidyr::unnest(cols = c(beta_line, partial)) |>
     dplyr::ungroup() |>
@@ -340,51 +233,7 @@ for(ano in 2015:2020){
       beta_index =  ifelse(beta_line <=q3_oco2, 0, 1)
     )
 
-  # trabalhando com os dados de queimadas
-  burned_BR <- readOGR(
-    dsn="raster",
-    layer=paste0("Burned_BR_",ano),
-    verbose=FALSE
-  )
-  df_raster <- as.data.frame(as(
-    as(burned_BR,"SpatialLinesDataFrame"),
-    "SpatialPointsDataFrame"))
-
-  df_raster_aux<-df_raster |>
-    group_by(Lines.ID) |>
-    summarise(Area = mean(Area, na.rm=TRUE),
-              Long = mean(coords.x1, na.rm=TRUE),
-              Lat = mean(coords.x2, na.rm=TRUE)) |>
-    dplyr::select(Long, Lat, Area)
-
-  longe_a <- lat_a <- area_a <- dist_a <- 0
-
-  for(j in 1:nrow(oco2_aux)){
-    x<-oco2_aux$longitude[j]
-    y<-oco2_aux$latitude[j]
-    longe_a[j]<-get_coord(x, y, 'Long')
-    lat_a[j]<-get_coord(x, y, 'Lat')
-    area_a[j]<-get_coord(x, y, 'Area')
-    dist_a[j]<-get_coord(x, y, 'distancia')
-  }
-
-  oco2_aux$Long <- longe_a
-  oco2_aux$Lat <- lat_a
-  oco2_aux$Area <- area_a
-  oco2_aux$Dist <- dist_a
-
-  plot <- oco2_aux |>
-    filter(Dist < 0.1, Area < 1000) |>
-    ggplot(aes(x=Area, y=beta_line, color=region)) +
-    geom_point() +
-    facet_wrap(~region) +
-    labs(title = ano)
-
-  png(paste0("imagens/plot_beta_burned",ano,".png"))
-  print(plot)
-  dev.off()
-
-  # Craindo os gráficos
+    # Craindo os gráficos
   histograma_beta <- oco2_aux |>
     ggplot2::ggplot(ggplot2::aes(x=beta_line)) +
     ggplot2::geom_histogram(bins=30,
@@ -422,6 +271,75 @@ for(ano in 2015:2020){
   png(paste0("imagens/histograma_anomaly_",ano,".png"))
   print(histograma_anomaly)
   dev.off()
+}
+
+
+for(ano in 2015:2020){
+  oco2_aux <- oco2_betanom |>
+    dplyr::filter(Ano == ano) |>
+    dplyr::filter(n_obs > 7) |>
+    tidyr::unnest(cols = c(Ano, beta_line, partial)) |>
+    dplyr::ungroup() |>
+    dplyr::select(Ano, region, longitude, latitude, beta_line, partial)
+
+  # trabalhando com os dados de queimadas
+  burned_BR <- readOGR(
+    dsn="raster",
+    layer=paste0("Burned_BR_",ano),
+    verbose=FALSE
+  )
+  df_raster <- as.data.frame(as(
+    as(burned_BR,"SpatialLinesDataFrame"),
+    "SpatialPointsDataFrame"))
+
+  df_raster_aux<-df_raster |>
+    group_by(Lines.ID) |>
+    summarise(Area = mean(Area, na.rm=TRUE),
+              Long = mean(coords.x1, na.rm=TRUE),
+              Lat = mean(coords.x2, na.rm=TRUE)) |>
+    dplyr::select(Long, Lat, Area)
+
+  longe_a <- lat_a <- area_a <- dist_a <- 0
+
+#   for(j in 1:nrow(oco2_aux)){
+#     x<-oco2_aux$longitude[j]
+#     y<-oco2_aux$latitude[j]
+#     longe_a[j]<-get_coord(x, y, 'Long')
+#     lat_a[j]<-get_coord(x, y, 'Lat')
+#     area_a[j]<-get_coord(x, y, 'Area')
+#     dist_a[j]<-get_coord(x, y, 'distancia')
+#   }
+#
+#   oco2_aux$Long_fogo <- longe_a
+#   oco2_aux$Lat_fogo <- lat_a
+#   oco2_aux$Area_fogo <- area_a
+#   oco2_aux$Dist_fogo_xco2 <- dist_a
+#
+#   plot <- oco2_aux |>
+#     # dplyr::filter(Dist_fogo_xco2 < 0.01, Area_fogo < 1000) |>
+#     ggplot(aes(x=Area_fogo, y=beta_line, color=region)) +
+#     geom_point() +
+#     facet_wrap(~region) +
+#     labs(title = ano)
+#
+#   png(paste0("imagens/plot_beta_burned",ano,".png"))
+#   print(plot)
+#   dev.off()
+#
+#   if( ano == 2015){
+#     oco2_betanom_fogo <-  oco2_aux
+#   } else {
+#     oco2_betanom_fogo <- rbind(oco2_betanom_fogo, oco2_aux)
+#   }
+#   print(ano)
+# }
+# readr::write_rds(oco2_betanom_fogo,"data-raw/oco2_betanom_fogo.rds")
+oco2_betanom_fogo <- readr::read_rds("data-raw/oco2_betanom_fogo.rds")
+
+
+for(ano in 2015:2016)
+  oco2_aux <- oco2_betanom_fogo |>
+  dplyr::filter(Ano == ano)
 
   # Definindo as coordenada para o objeto sp
   sp::coordinates(oco2_aux)=~ longitude+latitude
