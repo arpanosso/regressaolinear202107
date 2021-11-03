@@ -157,11 +157,6 @@ contorno <- purrr::map_dfr(1:27, get_contorno, lista=mapa$geom) |>
 names(contorno) <- c("X","Y")
 plot(contorno)
 
-# Definção das fórmulas para os semivariogramas
-form_beta<-beta_line~1
-form_anom<-anomaly~1
-form_index<-beta_index~1
-
 # Craindo as imagens -----------------------------------------------------
 # Criando o banco de dados
 # oco2_nest_total <- data.frame()
@@ -273,34 +268,44 @@ for( ano in 2015:2020){
   dev.off()
 }
 
-
-for(ano in 2015:2020){
-  oco2_aux <- oco2_betanom |>
-    dplyr::filter(Ano == ano) |>
-    dplyr::filter(n_obs > 7) |>
-    tidyr::unnest(cols = c(Ano, beta_line, partial)) |>
-    dplyr::ungroup() |>
-    dplyr::select(Ano, region, longitude, latitude, beta_line, partial)
-
-  # trabalhando com os dados de queimadas
-  burned_BR <- readOGR(
-    dsn="raster",
-    layer=paste0("Burned_BR_",ano),
-    verbose=FALSE
-  )
-  df_raster <- as.data.frame(as(
-    as(burned_BR,"SpatialLinesDataFrame"),
-    "SpatialPointsDataFrame"))
-
-  df_raster_aux<-df_raster |>
-    group_by(Lines.ID) |>
-    summarise(Area = mean(Area, na.rm=TRUE),
-              Long = mean(coords.x1, na.rm=TRUE),
-              Lat = mean(coords.x2, na.rm=TRUE)) |>
-    dplyr::select(Long, Lat, Area)
-
-  longe_a <- lat_a <- area_a <- dist_a <- 0
-
+#
+# for(ano in 2015:2020){
+#   oco2_aux <- oco2_betanom |>
+#     dplyr::filter(Ano == ano) |>
+#     dplyr::filter(n_obs > 7) |>
+#     tidyr::unnest(cols = c(Ano, beta_line, partial)) |>
+#     dplyr::ungroup() |>
+#     dplyr::select(Ano, region, longitude, latitude, beta_line, partial)
+#
+#   oco2_aux <- oco2_aux |>
+#     dplyr::mutate(
+#       anomaly =  partial - oco2_aux |>
+#         dplyr::pull(partial) |>
+#         mean(),
+#       Dbeta = beta_line - oco2_aux |>
+#         dplyr::pull(beta_line) |> mean(na.rm=TRUE)
+#     )
+#
+#
+#   # trabalhando com os dados de queimadas
+#   burned_BR <- readOGR(
+#     dsn="raster",
+#     layer=paste0("Burned_BR_",ano),
+#     verbose=FALSE
+#   )
+#   df_raster <- as.data.frame(as(
+#     as(burned_BR,"SpatialLinesDataFrame"),
+#     "SpatialPointsDataFrame"))
+#
+#   df_raster_aux<-df_raster |>
+#     group_by(Lines.ID) |>
+#     summarise(Area = mean(Area, na.rm=TRUE),
+#               Long = mean(coords.x1, na.rm=TRUE),
+#               Lat = mean(coords.x2, na.rm=TRUE)) |>
+#     dplyr::select(Long, Lat, Area)
+#
+#   longe_a <- lat_a <- area_a <- dist_a <- 0
+#
 #   for(j in 1:nrow(oco2_aux)){
 #     x<-oco2_aux$longitude[j]
 #     y<-oco2_aux$latitude[j]
@@ -336,10 +341,26 @@ for(ano in 2015:2020){
 # readr::write_rds(oco2_betanom_fogo,"data-raw/oco2_betanom_fogo.rds")
 oco2_betanom_fogo <- readr::read_rds("data-raw/oco2_betanom_fogo.rds")
 
+# Definção das fórmulas para os semivariogramas
+form_beta<-beta_line~1
+form_anom<-anomaly~1
+form_index<-beta_index~1
+form_fogo<-Area_fogo~1
+
+
 
 for(ano in 2015:2016)
   oco2_aux <- oco2_betanom_fogo |>
   dplyr::filter(Ano == ano)
+  names(oco2_aux)
+  oco2_aux |>
+    ggplot(aes(x=Long_fogo, y=Lat_fogo, color=Area_fogo)) +
+    geom_point()
+
+  oco2_aux <- oco2_aux |>
+    dplyr::mutate(Area_fogo =
+                    ifelse(Area_fogo>=1000,1000,Area_fogo))
+
 
   # Definindo as coordenada para o objeto sp
   sp::coordinates(oco2_aux)=~ longitude+latitude
@@ -353,6 +374,16 @@ for(ano in 2015:2016)
   png(paste0("imagens/variograma_beta_",ano,".png"),
       width = 1024, height = 768)
   print(plot(vari_beta, model=m_beta, col=1, pl=F, pch=16))
+  dev.off()
+
+  # Semivariograma para fogo
+  vari_fogo <- gstat::variogram(form_fogo, data=oco2_aux)
+  m_fogo <- gstat::fit.variogram(vari_fogo,fit.method = 7,
+                                 gstat::vgm(1e07, "Sph", 15, 6e07))
+
+  png(paste0("imagens/variograma_fogo_",ano,".png"),
+      width = 1024, height = 768)
+  print(plot(vari_fogo, model=m_fogo, col=1, pl=F, pch=16))
   dev.off()
 
   # Semivariograma para Anomalia
@@ -413,6 +444,31 @@ for(ano in 2015:2016)
       width = 1024, height = 768)
   print(krigagem_beta)
   dev.off()
+
+  # Krigando
+  ko_fogo<-gstat::krige(formula=form_fogo, oco2_aux, grid, model=m_beta,
+                        block=c(0,0),
+                        nsim=0,
+                        na.action=na.pass,
+                        debug.level=-1,
+  )
+
+
+  krigagem_fogo <- tibble::as_tibble(ko_fogo) |>
+    tibble::add_column(flag_br) |>
+    dplyr::filter(flag_br) |>
+    ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+    ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+    ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+    ggplot2::coord_equal()+
+    ggplot2::labs(fill="Fogo") +
+    ggplot2::theme_bw()
+
+  png(paste0("imagens/krigagem_fogo_",ano,".png"),
+      width = 1024, height = 768)
+  print(krigagem_fogo)
+  dev.off()
+
 
   # Anomalia
   ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
@@ -570,8 +626,6 @@ saidona |>
     legend.position = 'none',axis.text = ggplot2::element_text(size = 10)
   ) +
   ggplot2::geom_vline(xintercept = media)
-
-
 
 # Mapa da figura 01 -------------------------------------------------------
 br <- geobr::read_country(showProgress = FALSE)
