@@ -1,5 +1,6 @@
 # Adicionar o mapa do Brasil
-# com os gráficos Puxando mostrando as regressões subindo, descendo e não mudando.
+# com os gráficos Puxando mostrando as regressões subindo,
+# descendo e não mudando.
 # para discutir.
 library(tidyverse)
 library(rgdal)
@@ -12,7 +13,9 @@ source("R/minhas-funcoes.R")
 url <- "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.txt"
 co2_nooa <- read.table(url, skip = 49, h=FALSE)
 co2_nooa |> names() <- c("year","month","day","decimal",
-                         "CO2_ppm","n_days","year_ago_1","years_ago_10","since_1800")
+                         "CO2_ppm","n_days","year_ago_1",
+                         "years_ago_10",
+                         "since_1800")
 co2_nooa <- co2_nooa |>
   dplyr::mutate(
     date = lubridate::make_date(year = year, month = month, day = day)
@@ -533,13 +536,94 @@ for(ano in 2015:2020){
 #readr::write_rds(ko_final,"data-raw/ko_final.rds")
 ko_final <- readr::read_rds("data-raw/ko_final.rds")
 
+# BETA
+ko_final |>
+  dplyr::filter(flag_norte) |>
+  # dplyr::select(Beta, Anom, Fogo) |>
+  ggplot2::ggplot(ggplot2::aes(x=Fogo, y = Beta))+
+  ggplot2::geom_point(color="red",alpha=.2) +
+  ggplot2::facet_wrap(~as.factor(ano)) +
+  ggplot2::geom_smooth(method = "lm")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~")))  +
+  ggplot2::labs(title="Região Norte")
+
+ko_final |>
+  dplyr::filter(flag_nordeste) |>
+  # dplyr::select(Beta, Anom, Fogo) |>
+  ggplot2::ggplot(ggplot2::aes(x=Fogo, y = Beta))+
+  ggplot2::geom_point(color="orange",alpha=.2) +
+  ggplot2::facet_wrap(~as.factor(ano)) +
+  ggplot2::geom_smooth(method = "lm")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::labs(title="Região Nordeste")
+
+ko_final |>
+  dplyr::filter(flag_centroeste) |>
+  # dplyr::select(Beta, Anom, Fogo) |>
+  ggplot2::ggplot(ggplot2::aes(x=Fogo, y = Beta))+
+  ggplot2::geom_point(color="blue",alpha=.2) +
+  ggplot2::facet_wrap(~as.factor(ano)) +
+  ggplot2::geom_smooth(method = "lm")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::labs(title="Região Centroeste")
+
+
+# Anomalia
+ko_final |>
+  dplyr::filter(flag_norte) |>
+  # dplyr::select(Beta, Anom, Fogo) |>
+  ggplot2::ggplot(ggplot2::aes(x=Fogo, y = Anom))+
+  ggplot2::geom_point(color="red",alpha=.2) +
+  ggplot2::facet_wrap(~as.factor(ano)) +
+  ggplot2::geom_smooth(method = "lm")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~")))  +
+  ggplot2::labs(title="Região Norte")
+
+ko_final |>
+  dplyr::filter(flag_nordeste) |>
+  # dplyr::select(Beta, Anom, Fogo) |>
+  ggplot2::ggplot(ggplot2::aes(x=Fogo, y = Anom))+
+  ggplot2::geom_point(color="orange",alpha=.2) +
+  ggplot2::facet_wrap(~as.factor(ano)) +
+  ggplot2::geom_smooth(method = "lm")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::labs(title="Região Nordeste")
+
+ko_final |>
+  dplyr::filter(flag_centroeste) |>
+  # dplyr::select(Beta, Anom, Fogo) |>
+  ggplot2::ggplot(ggplot2::aes(x=Fogo, y = Anom))+
+  ggplot2::geom_point(color="blue",alpha=.2) +
+  ggplot2::facet_wrap(~as.factor(ano)) +
+  ggplot2::geom_smooth(method = "lm")+
+  ggpubr::stat_regline_equation(ggplot2::aes(
+    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::labs(title="Região Centroeste")
+
+#####
+
+ko_final |>
+  dplyr::filter(ano == 2020, flag_norte) |>
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+  ggplot2::geom_tile(ggplot2::aes(fill = Beta)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="Beta") +
+  ggplot2::theme_bw()
+
 # histogramas_ano ---------------------------------------------------------
 beta_ano<-function(ano){
   oco2_nest <- oco2_br_trend |>
     dplyr::filter(year == ano) |>
     tibble::as_tibble() |>
     dplyr::mutate(quarter = lubridate::quarter(data),
-                  quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
+                  quarter_year = lubridate::make_date(year, quarter, 1)) |>
+    tidyr::pivot_longer(
                     starts_with("flag"),
                     names_to = "region",
                     values_to = "flag",
