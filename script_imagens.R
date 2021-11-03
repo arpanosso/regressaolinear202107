@@ -349,7 +349,7 @@ form_fogo<-Area_fogo~1
 
 
 
-for(ano in 2015:2016)
+for(ano in 2015:2020){
   oco2_aux <- oco2_betanom_fogo |>
   dplyr::filter(Ano == ano)
   names(oco2_aux)
@@ -359,7 +359,7 @@ for(ano in 2015:2016)
 
   oco2_aux <- oco2_aux |>
     dplyr::mutate(Area_fogo =
-                    ifelse(Area_fogo>=1000,1000,Area_fogo))
+                    ifelse(Area_fogo>=500,500,Area_fogo))
 
 
   # Definindo as coordenada para o objeto sp
@@ -421,7 +421,7 @@ for(ano in 2015:2016)
   flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom, gradeado = grid)
   flag_br <- apply(flag, 1, sum) != 0
 
-  # Krigando
+  # Krigando beta
   ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta,
                         block=c(0,0),
                         nsim=0,
@@ -445,7 +445,7 @@ for(ano in 2015:2016)
   print(krigagem_beta)
   dev.off()
 
-  # Krigando
+  # Krigando fogo
   ko_fogo<-gstat::krige(formula=form_fogo, oco2_aux, grid, model=m_beta,
                         block=c(0,0),
                         nsim=0,
@@ -470,7 +470,7 @@ for(ano in 2015:2016)
   dev.off()
 
 
-  # Anomalia
+  # Krigando Anomalia
   ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
                         block=c(0,0),
                         nsim=0,
@@ -494,7 +494,7 @@ for(ano in 2015:2016)
   dev.off()
 
 
-  # vamos pegar os de krigagem
+  # vamos pegar os valores krigados de krigagem
   ko_beta_aux <- tibble::as_tibble(ko_beta) |>
     tibble::add_column(flag_br) |>
     dplyr::filter(flag_br)
@@ -503,11 +503,19 @@ for(ano in 2015:2016)
     tibble::add_column(flag_br) |>
     dplyr::filter(flag_br)
 
-  ko_aux <- ko_beta_aux
+  ko_fogo_aux <- tibble::as_tibble(ko_fogo) |>
+    tibble::add_column(flag_br) |>
+    dplyr::filter(flag_br)
+
+  ko_aux <- ko_beta_aux |>
+    dplyr::select(X,Y)
   ko_aux$Beta <- ko_beta_aux$var1.pred
   ko_aux$Anom <- ko_anom_aux$var1.pred
+  ko_aux$Fogo <- ko_fogo_aux$var1.pred
+  ko_aux$ano <- ano
 
-  ko_aux<-ko_beta_aux |>
+
+  ko_aux<-ko_aux |>
     mutate(
       flag_norte = def_pol(X, Y, pol_norte),
       flag_nordeste = def_pol(X, Y, pol_nordeste),
@@ -516,46 +524,14 @@ for(ano in 2015:2016)
       flag_sul = def_pol(X, Y, pol_sul)
     )
 
-  longe_a <- lat_a <- area_a <- dist_a <- 0
-
-  for(j in 1:nrow(ko_beta_aux)){
-    x<-ko_beta_aux$X[j]
-    y<-ko_beta_aux$Y[j]
-    longe_a[j]<-get_coord(x, y, 'Long')
-    lat_a[j]<-get_coord(x, y, 'Lat')
-    area_a[j]<-get_coord(x, y, 'Area')
-    dist_a[j]<-get_coord(x, y, 'distancia')
+  if(ano == 2015){
+    ko_final <- ko_aux
+  }else{
+    ko_final <- rbind(ko_final,ko_aux)
   }
-
-  ko_aux$Long <- longe_a
-  ko_aux$Lat <- lat_a
-  ko_aux$Area <- area_a
-  ko_aux$Dist <- dist_a
-  ko_aux$Beta <- ko_beta_aux$var1.pred
-  ko_aux$Anom <- ko_anom_aux$var1.pred
-
-  names(ko_aux)
-
-
-  plot <- ko_aux |>
-    filter(Dist < 0.5, Area < 10000, Area > 0) |>
-    ggplot(aes(x=Area, y=var1.pred)) +
-    geom_point() +
-    labs(title = ano)
-  print(plot)
-
-  plot <- ko_aux |>
-    #filter(Dist < 0.5, Area < 10000, Area > 0) |>
-    ggplot(aes(x=Beta, y=Anom)) +
-    geom_point() +
-    labs(title = ano)
-  print(plot)
-
-  ko_beta_aux |>
-    filter(Dist < 0.001, Area < 10000, Area > 0) |>
-    dplyr::select(Area, var1.pred) |>
-    cor()
 }
+#readr::write_rds(ko_final,"data-raw/ko_final.rds")
+ko_final <- readr::read_rds("data-raw/ko_final.rds")
 
 # histogramas_ano ---------------------------------------------------------
 beta_ano<-function(ano){
