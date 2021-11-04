@@ -7,11 +7,6 @@
 
 ### Data: 31/08/2021
 
-Projeto final apresentado os instrutores **Athos Damiani** e **Fernando
-Correa** da [curso-R](https://curso-r.com/) como parte das exigências
-para a finalização do curso de **Regressão Linear** (Trilha de Machine
-Learning - Turma Agosto 2021).
-
 ## Introdução
 
 As concentrações atmosféricas de gases do efeito estufa (GEE) têm
