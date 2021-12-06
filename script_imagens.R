@@ -42,7 +42,7 @@ co2_nooa |>
   ggplot2::ggplot(ggplot2::aes(x=dia, y=CO2_ppm)) +
   ggplot2::geom_point() +
   ggplot2::geom_smooth(method = "lm") +
-  ggpubr::stat_regline_equation(ggplot2::aes(
+  2ggpubr::stat_regline_equation(ggplot2::aes(+++
     label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw()
 
@@ -80,6 +80,51 @@ co2_nooa |>
   ggplot2::theme_bw() +
   ggplot2::labs(fill="")
 
+
+
+# Gráfico para Metano -----------------------------------------------------
+ch4 <- readr::read_table("data-raw/GOSAT_CH4_biomas.txt") |>
+  dplyr::mutate(
+    longitude = as.numeric(
+      stringr::str_replace_all(string = long,"\\.",""))/ 1e15,
+    latitude = as.numeric(
+      stringr::str_replace_all(string = lat,"\\.",""))/ 1e15,
+    data = lubridate::make_date(year,month,day)
+  )
+dplyr::glimpse(ch4)
+
+
+ch4 |>
+  dplyr::mutate(
+    year = lubridate::year(data),
+    month = lubridate::month(data),
+    day = lubridate::day(data),
+    dia = dplyr::case_when(
+      year == 2015 ~ difftime(data,"2015-01-01", units = "days"),
+      year == 2016 ~ difftime(data,"2016-01-01", units = "days"),
+      year == 2017 ~ difftime(data,"2017-01-01", units = "days"),
+      year == 2018 ~ difftime(data,"2018-01-01", units = "days"),
+      year == 2019 ~ difftime(data,"2019-01-01", units = "days"),
+      year == 2020 ~ difftime(data,"2020-01-01", units = "days"),
+    ),
+    day_week = lubridate::wday(data),
+    month_year = lubridate::make_date(year, month, 1) ) |>
+  dplyr::filter(year %in% 2015:2020) |>
+  dplyr::group_by(year, dia) |>
+  dplyr::summarise(ch4_mean = mean(ch4, na.rm =TRUE)) |>
+  ggplot2::ggplot(ggplot2::aes(x=dia,y=ch4_mean,
+                               fill=forcats::as_factor(year))) +
+  ggplot2::geom_point(shape=21,color="black") +
+  # ggplot2::geom_line(color="red") +
+  ggplot2::geom_smooth(method = "lm") +
+  ggplot2::facet_wrap(~year,scales = "free")+
+  # ggpubr::stat_regline_equation(ggplot2::aes(
+  #    label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(fill="")
+
+
+# CO2 --------------------------------------------------------------------
 "data/oco2.rds" |>
   readr::read_rds() |>
   dplyr::mutate(
@@ -103,6 +148,7 @@ co2_nooa |>
     label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw() +
   ggplot2::labs(fill="")
+
 
 # Linear model por ano ----------------------------------------------------
 anos <- 2015:2020
@@ -162,28 +208,68 @@ plot(contorno)
 
 # Craindo as imagens -----------------------------------------------------
 # Criando o banco de dados
-# oco2_nest_total <- data.frame()
-# for(ano in 2015:2020){
-#   # Criando banco de dados aninhado por ano
-#   oco2_nest <- oco2_br_trend |>
-#     dplyr::filter(year == ano) |>
-#     tibble::as_tibble() |>
-#     dplyr::mutate(quarter = lubridate::quarter(data),
-#                   quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
-#                     starts_with("flag"),
-#                     names_to = "region",
-#                     values_to = "flag",
-#                   ) |>
-#     dplyr::filter(flag) |>
-#     dplyr::mutate(region = stringr::str_remove(region,"flag_")) |>
-#     dplyr::group_by(region, longitude, latitude, dia) |>
-#     dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |>
-#     dplyr::mutate(
-#       regi = region,
-#       id_time = dia
-#     ) |>
-#     dplyr::group_by(region, latitude, longitude) |>
-#     tidyr::nest()
+oco2_nest_total <- data.frame()
+ch4_nest_total <- data.frame()
+for(ano in 2015:2020){
+ # Criando banco de dados aninhado por ano
+   oco2_nest <- oco2_br_trend |>
+     dplyr::filter(year == ano) |>
+     tibble::as_tibble() |>
+     dplyr::mutate(quarter = lubridate::quarter(data),
+                   quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
+                     starts_with("flag"),
+                     names_to = "region",
+                     values_to = "flag",
+                   ) |>
+     dplyr::filter(flag) |>
+     dplyr::mutate(region = stringr::str_remove(region,"flag_")) |>
+     dplyr::group_by(region, longitude, latitude, dia) |>
+     dplyr::summarise(xco2_mean = mean(xco2, na.rm=TRUE)) |>
+     dplyr::mutate(
+       regi = region,
+       id_time = dia
+     ) |>
+     dplyr::group_by(region, latitude, longitude) |>
+     tidyr::nest()
+
+
+   ch4_nest <- ch4 |>
+     dplyr::filter(year == ano) |>
+     tibble::as_tibble() |>
+     dplyr::mutate(quarter = lubridate::quarter(data),
+                   quarter_year = lubridate::make_date(year, quarter, 1)) |>   tidyr::pivot_longer(
+                     starts_with("flag"),
+                     names_to = "region",
+                     values_to = "flag",
+                   ) |>
+     dplyr::filter(flag) |>
+     dplyr::mutate(region = stringr::str_remove(region,"flag_")) |>
+     dplyr::group_by(region, longitude, latitude, dia) |>
+     dplyr::summarise(ch4_mean = mean(ch4, na.rm=TRUE)) |>
+     dplyr::mutate(
+       regi = region,
+       id_time = dia
+     ) |>
+     dplyr::group_by(region, latitude, longitude) |>
+     tidyr::nest()
+
+   ch4 <- ch4 |>
+     dplyr::mutate(
+       flag_br = def_pol(longitude, latitude, pol_br),
+       flag_norte = def_pol(longitude, latitude, pol_norte),
+       flag_nordeste = def_pol(longitude, latitude, pol_nordeste),
+       flag_sul = def_pol(longitude, latitude, pol_sul),
+       flag_sudeste = def_pol(longitude, latitude, pol_sudeste),
+       flag_centroeste = def_pol(longitude, latitude, pol_centroeste),
+       dia = case_when(
+         year == 2015 ~ difftime(data,"2015-01-01", units = "days"),
+         year == 2016 ~ difftime(data,"2016-01-01", units = "days"),
+         year == 2017 ~ difftime(data,"2017-01-01", units = "days"),
+         year == 2018 ~ difftime(data,"2018-01-01", units = "days"),
+         year == 2019 ~ difftime(data,"2019-01-01", units = "days"),
+         year == 2020 ~ difftime(data,"2020-01-01", units = "days"),
+       )
+     )
 #
 #   # Adicionando as colunas da regressão linear
 #   oco2_nest <- oco2_nest |>
@@ -343,6 +429,9 @@ for( ano in 2015:2020){
 # }
 # readr::write_rds(oco2_betanom_fogo,"data-raw/oco2_betanom_fogo.rds")
 oco2_betanom_fogo <- readr::read_rds("data-raw/oco2_betanom_fogo.rds")
+
+
+
 
 # Definção das fórmulas para os semivariogramas
 form_beta<-beta_line~1
@@ -894,3 +983,5 @@ cor.test(betas,areas)
 
 
 # Interpolar com a mesma resolução do xCO2 para correlação digital
+
+

@@ -117,3 +117,33 @@ linear_reg <- function(df, output="beta1"){
     return(nrow(df))
   }
 }
+
+
+
+# definição da equação de regressão linear e seus diagnósticos
+linear_reg_ch4 <- function(df, output="beta1"){
+  # Modelo para cada pixel
+  modelo <- lm(ch4_mean ~ dia, data=df)
+  beta_1 <- c(summary(modelo)$coefficients[2])
+
+  # Definindo o modelo
+  if(output=="beta1"){
+    return(beta_1*365) # <-------------------- BETA LINE POR 365
+  }
+
+  # Salvando o valor P
+  if(output=="p_value"){
+    if(is.nan(beta_1)){
+      beta_1 <- 0
+      p <- 1
+    }else{
+      p <- summary(modelo)$coefficients[2,4]
+      if(is.nan(p)) p <- 1
+    }
+    return(p)
+  }
+
+  if(output == "n"){
+    return(nrow(df))
+  }
+}
