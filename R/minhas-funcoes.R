@@ -123,7 +123,7 @@ linear_reg <- function(df, output="beta1"){
 # definição da equação de regressão linear e seus diagnósticos
 linear_reg_ch4 <- function(df, output="beta1"){
   # Modelo para cada pixel
-  modelo <- lm(ch4_mean ~ dia, data=df)
+  modelo <- lm(ch4_mean ~ year, data=df)
   beta_1 <- c(summary(modelo)$coefficients[2])
 
   # Definindo o modelo
