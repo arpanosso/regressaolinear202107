@@ -15,7 +15,7 @@ ch4 <- readr::read_table("data-raw/GOSAT_CH4_biomas.txt") |>
       stringr::str_replace_all(string = lat,"\\.",""))/ 1e15,5),
     data = lubridate::make_date(year,month,day),
     dia = difftime(data,"2009-01-01", units = "days"),
-    season = ifelse(month > 3 & month <= 9, "dry", "summer"),
+    season = ifelse(month > 3 & month <= 9, "dry", "wet"),
     ch4 = ifelse(ch4 > 1850, 1775,ch4)
   )
 
@@ -44,7 +44,7 @@ br |>
                    size=.15, show.legend = FALSE) +
   ggplot2::geom_point(data=ch4 |>
                         dplyr::filter(year %in% 2017,
-                                      season == "summer") ,
+                                      season == "wet") ,
                       ggplot2::aes(x=longitude, y=latitude),
                       shape=17,
                       col="red",
@@ -180,18 +180,19 @@ ch4_nest <- ch4 |>
   dplyr::group_by(region, latitude, longitude) |>
   tidyr::nest()
 
-ch4_nest <- ch4_nest |>
-  dplyr::mutate(
-    beta_line = purrr::map(data,linear_reg_ch4, output="beta1"),
-    p_value = purrr::map(data,linear_reg_ch4, output="p_value"),
-    n_obs = purrr::map(data,linear_reg_ch4, output="n")
-    #plot = purrr::map(data,linear_reg, output="plot"),
-    #hist = purrr::map(data,linear_reg, output="hist")
-  )
-ch4_nest |>
-  tidyr::unnest(cols = c(beta_line, p_value,n_obs)) |>
-  dplyr::select(region, longitude, latitude, n_obs, p_value, beta_line) |>
-  filter(n_obs >= 3)
+# ch4_nest <- ch4_nest |>
+#   dplyr::mutate(
+#     beta_line = purrr::map(data,linear_reg_ch4, output="beta1"),
+#     p_value = purrr::map(data,linear_reg_ch4, output="p_value"),
+#     n_obs = purrr::map(data,linear_reg_ch4, output="n")
+#     #plot = purrr::map(data,linear_reg, output="plot"),
+#     #hist = purrr::map(data,linear_reg, output="hist")
+#   )
+
+# ch4_nest |>
+#   tidyr::unnest(cols = c(beta_line, p_value,n_obs)) |>
+#   dplyr::select(region, longitude, latitude, n_obs, p_value, beta_line) |>
+#   filter(n_obs >= 3)
 
 ch4 <- ch4 |>
   dplyr::mutate(
@@ -217,29 +218,37 @@ plot(contorno)
 
 # Definção das fórmulas para os semivariogramas
 form_ch4<-ch4~1
-for(ano in 2009:2019){
-  for(estacao in c('dry','summer')){
+for(ano in 2010:2019){
+  for(estacao in unique(ch4$season)){
     ch4_aux <- ch4 |>
       dplyr::filter(year == ano, season==estacao)
     ch4_aux |>
       ggplot(aes(x=longitude, y=latitude, color=ch4)) +
       geom_point()
 
-
     # Definindo as coordenada para o objeto sp
     sp::coordinates(ch4_aux)=~ longitude+latitude
 
     # Semivariograma para Beta
     vari_ch4 <- gstat::variogram(form_ch4, data=ch4_aux,
-                                 cutoff = 20,
-                                 width = 20/15)
+                                 cutoff = 30,
+                                 width = 30/15)
+
     m_ch4 <- gstat::fit.variogram(vari_ch4,fit.method = 7,
-                                   gstat::vgm(50, "Sph", 8, 1))
+                                   gstat::vgm(get_psill(vari_ch4),
+                                              model = "Gau",
+                                              get_range(vari_ch4),
+                                              get_nugget(vari_ch4)))
+    if(m_ch4[[3]][[2]] < 0) m_ch4[[3]][[2]] <- 15
+    if(m_ch4[[3]][[2]] > 30) m_ch4[[3]][[2]] <- 15
+    if(m_ch4[[2]][[2]] > 600) m_ch4[[2]][[2]] <- 600
+    print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16))
 
     png(paste0("imagens/variograma_ch4_",ano,"-",estacao,".png"),
         width = 1024, height = 768)
     print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16))
     dev.off()
+
 
     # Refinando o gradeado
     x<-ch4_aux$longitude
@@ -255,7 +264,8 @@ for(ano in 2009:2019){
     flag_br <- apply(flag, 1, sum) != 0
 
     # Krigando beta
-    ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid, model=m_ch4,
+    ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
+                         model=m_ch4,
                           block=c(0,0),
                           nsim=0,
                           na.action=na.pass,
