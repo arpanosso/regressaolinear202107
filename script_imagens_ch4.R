@@ -218,7 +218,7 @@ plot(contorno)
 
 # Definção das fórmulas para os semivariogramas
 form_ch4<-ch4~1
-for(ano in 2010:2019){
+for(ano in 2009:2019){
   for(estacao in unique(ch4$season)){
     ch4_aux <- ch4 |>
       dplyr::filter(year == ano, season==estacao)
