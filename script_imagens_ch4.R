@@ -218,7 +218,7 @@ plot(contorno)
 
 # Definção das fórmulas para os semivariogramas
 form_ch4<-ch4~1
-for(ano in 2009:2019){
+for(ano in 2014:2014){
   for(estacao in unique(ch4$season)){
     ch4_aux <- ch4 |>
       dplyr::filter(year == ano, season==estacao)
@@ -231,8 +231,8 @@ for(ano in 2009:2019){
 
     # Semivariograma para Beta
     vari_ch4 <- gstat::variogram(form_ch4, data=ch4_aux,
-                                 cutoff = 30,
-                                 width = 30/15)
+                                 cutoff = 15,
+                                 width = 15/15)
 
     m_ch4 <- gstat::fit.variogram(vari_ch4,fit.method = 7,
                                    gstat::vgm(get_psill(vari_ch4),
@@ -253,7 +253,7 @@ for(ano in 2009:2019){
     # Refinando o gradeado
     x<-ch4_aux$longitude
     y<-ch4_aux$latitude
-    dis <- .5 #Distância entre pontos
+    dis <- 1.5 #Distância entre pontos
     grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
                         Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
     sp::gridded(grid) = ~ X + Y
