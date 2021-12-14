@@ -216,120 +216,135 @@ ch4 <- ch4 |>
 # para isso vamos usar o grid já construído do CO2
 plot(contorno)
 
+par_list <- tibble::as_tibble(
+  expand.grid(ano = 2009:2020,
+              estacao = c("dry","wet"),psill = 200,
+              model = "Gau",
+              range = 15,
+              nugget = 50))
+
 # Definção das fórmulas para os semivariogramas
 form_ch4<-ch4~1
-for(ano in 2014:2014){
-  for(estacao in unique(ch4$season)){
+for(i in 1:nrow(par_list)){
+  legenda <- paste0(par_list$ano[i],"-",par_list$estacao[i])
     ch4_aux <- ch4 |>
-      dplyr::filter(year == ano, season==estacao)
+      dplyr::filter(year == par_list$ano[i],
+                    season == par_list$estacao[i])
+    q1 <- quantile(ch4_aux$ch4,.25)
+    q3 <- quantile(ch4_aux$ch4,.75)
+
+
+    ch4_aux <- ch4_aux |>
+      dplyr::filter(ch4> q1 & ch4 < q3)
+
     ch4_aux |>
       ggplot(aes(x=longitude, y=latitude, color=ch4)) +
       geom_point()
 
+    ch4_aux <- ch4_aux |>
+      group_by(longitude,latitude) |>
+      summarise(ch4 = mean(ch4, na.rm=TRUE))
+
     # Definindo as coordenada para o objeto sp
-    sp::coordinates(ch4_aux)=~ longitude+latitude
+    sp::coordinates(ch4_aux)=~longitude+latitude
 
     # Semivariograma para Beta
     vari_ch4 <- gstat::variogram(form_ch4, data=ch4_aux,
-                                 cutoff = 15,
-                                 width = 15/15)
+                                 cutoff = 30,
+                                 width = 2.2)
 
     m_ch4 <- gstat::fit.variogram(vari_ch4,fit.method = 7,
-                                   gstat::vgm(get_psill(vari_ch4),
+                                   gstat::vgm(200,
                                               model = "Gau",
-                                              get_range(vari_ch4),
-                                              get_nugget(vari_ch4)))
+                                              15,
+                                              50))
     if(m_ch4[[3]][[2]] < 0) m_ch4[[3]][[2]] <- 15
     if(m_ch4[[3]][[2]] > 30) m_ch4[[3]][[2]] <- 15
     if(m_ch4[[2]][[2]] > 600) m_ch4[[2]][[2]] <- 600
-    print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16))
+    print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
+               main = legenda))
 
-    png(paste0("imagens/variograma_ch4_",ano,"-",estacao,".png"),
+    png(paste0("imagens/variograma_ch4_",legenda,".png"),
         width = 1024, height = 768)
-    print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16))
+    print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
+               main = legenda))
     dev.off()
 
 
-    # Refinando o gradeado
-    x<-ch4_aux$longitude
-    y<-ch4_aux$latitude
-    dis <- 1.5 #Distância entre pontos
-    grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
-                        Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
-    sp::gridded(grid) = ~ X + Y
+    #Refinando o gradeado
+    # x<-ch4_aux$longitude
+    # y<-ch4_aux$latitude
+    # dis <- 0.5 #Distância entre pontos
+    # grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
+    #                     Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
+    # sp::gridded(grid) = ~ X + Y
+    # flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
+    #                        gradeado = grid)
+    # flag_br <- apply(flag, 1, sum) != 0
 
-
-    flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
-                           gradeado = grid)
-    flag_br <- apply(flag, 1, sum) != 0
-
-    # Krigando beta
-    ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
-                         model=m_ch4,
-                          block=c(0,0),
-                          nsim=0,
-                          na.action=na.pass,
-                          debug.level=-1,
-    )
-
-
-    krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
-      tibble::add_column(flag_br) |>
-      dplyr::filter(flag_br) |>
-      ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
-      ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
-      ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
-      ggplot2::coord_equal()+
-      ggplot2::labs(title=paste0(ano,"_",estacao),
-                    fill="ch4") +
-      ggplot2::theme_bw()
-
-    png(paste0("imagens/krigagem_ch4_",ano,"_",estacao,".png"),
-        width = 1024, height = 768)
-    print(krigagem_ch4)
-    dev.off()
-
+    # Krigando metano
+    # ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
+    #                      model=m_ch4,
+    #                       block=c(0,0),
+    #                       nsim=0,
+    #                       na.action=na.pass,
+    #                       debug.level=-1,
+    # )
     #
-    # # vamos pegar os valores krigados de krigagem
-    # ko_beta_aux <- tibble::as_tibble(ko_beta) |>
+    # krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
     #   tibble::add_column(flag_br) |>
-    #   dplyr::filter(flag_br)
+    #   dplyr::filter(flag_br) |>
+    #   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+    #   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+    #   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+    #   ggplot2::coord_equal()+
+    #   ggplot2::labs(title=legenda,
+    #                 fill="ch4") +
+    #   ggplot2::theme_bw()
     #
-    # ko_anom_aux <- tibble::as_tibble(ko_anom) |>
-    #   tibble::add_column(flag_br) |>
-    #   dplyr::filter(flag_br)
-    #
-    # ko_fogo_aux <- tibble::as_tibble(ko_fogo) |>
-    #   tibble::add_column(flag_br) |>
-    #   dplyr::filter(flag_br)
-    #
-    # ko_aux <- ko_beta_aux |>
-    #   dplyr::select(X,Y)
-    # ko_aux$Beta <- ko_beta_aux$var1.pred
-    # ko_aux$Anom <- ko_anom_aux$var1.pred
-    # ko_aux$Fogo <- ko_fogo_aux$var1.pred
-    # ko_aux$ano <- ano
-    #
-    #
-    # ko_aux<-ko_aux |>
-    #   mutate(
-    #     flag_norte = def_pol(X, Y, pol_norte),
-    #     flag_nordeste = def_pol(X, Y, pol_nordeste),
-    #     flag_centroeste = def_pol(X, Y, pol_centroeste),
-    #     flag_sudeste = def_pol(X, Y, pol_sudeste),
-    #     flag_sul = def_pol(X, Y, pol_sul)
-    #   )
-    #
-    # if(ano == 2009){
-    #   ko_final <- ko_aux
-    # }else{
-    #   ko_final <- rbind(ko_final,ko_aux)
-    # }
-  }
+    # png(paste0("imagens/krigagem_ch4_",legenda,".png"),
+    #     width = 1024, height = 768)
+    # print(krigagem_ch4)
+    # dev.off()
 }
 
 
-
+#
+# # vamos pegar os valores krigados de krigagem
+# ko_beta_aux <- tibble::as_tibble(ko_beta) |>
+#   tibble::add_column(flag_br) |>
+#   dplyr::filter(flag_br)
+#
+# ko_anom_aux <- tibble::as_tibble(ko_anom) |>
+#   tibble::add_column(flag_br) |>
+#   dplyr::filter(flag_br)
+#
+# ko_fogo_aux <- tibble::as_tibble(ko_fogo) |>
+#   tibble::add_column(flag_br) |>
+#   dplyr::filter(flag_br)
+#
+# ko_aux <- ko_beta_aux |>
+#   dplyr::select(X,Y)
+# ko_aux$Beta <- ko_beta_aux$var1.pred
+# ko_aux$Anom <- ko_anom_aux$var1.pred
+# ko_aux$Fogo <- ko_fogo_aux$var1.pred
+# ko_aux$ano <- ano
+#
+#
+# ko_aux<-ko_aux |>
+#   mutate(
+#     flag_norte = def_pol(X, Y, pol_norte),
+#     flag_nordeste = def_pol(X, Y, pol_nordeste),
+#     flag_centroeste = def_pol(X, Y, pol_centroeste),
+#     flag_sudeste = def_pol(X, Y, pol_sudeste),
+#     flag_sul = def_pol(X, Y, pol_sul)
+#   )
+#
+# if(ano == 2009){
+#   ko_final <- ko_aux
+# }else{
+#   ko_final <- rbind(ko_final,ko_aux)
+# }
 
 
 
