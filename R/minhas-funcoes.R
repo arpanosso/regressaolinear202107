@@ -146,37 +146,37 @@ linear_reg_ch4 <- function(df, output="beta1"){
   }
 }
 
-# Função para pegar os chutes iniciais do variograma
-get_psill <- function(vari){
-  Gamma <- vari$gamma
-  return(-min(Gamma)+median(Gamma))
-}
-
-get_nugget <- function(vari){
-  Gamma <- vari$gamma
-  return(min(Gamma))
-}
-
-
-get_range <- function(vari){
-  Gamma <- vari$gamma
-  Dist <- vari$dist
-  Dist2 <- Dist*Dist
-
-  reg <- lm(Gamma ~ Dist + Dist2)
-  reg_anova <- summary(reg)
-  c <- reg_anova$coefficients[1]
-  b <- reg_anova$coefficients[2]
-  a <- reg_anova$coefficients[3]
-
-  Xv <- - b/2/a
-  # plot(Gamma~Dist)
-  # curve(a*x^2 + b*x +c,add=TRUE)
-
-  if(Xv < 30 & Xv > 0 ){
-    return(Xv)
-  }else{
-    return(median(Dist))
-  }
-}
+# # Função para pegar os chutes iniciais do variograma
+# get_psill <- function(vari){
+#   Gamma <- vari$gamma
+#   return(-min(Gamma)+median(Gamma))
+# }
+#
+# get_nugget <- function(vari){
+#   Gamma <- vari$gamma
+#   return(min(Gamma))
+# }
+#
+#
+# get_range <- function(vari){
+#   Gamma <- vari$gamma
+#   Dist <- vari$dist
+#   Dist2 <- Dist*Dist
+#
+#   reg <- lm(Gamma ~ Dist + Dist2)
+#   reg_anova <- summary(reg)
+#   c <- reg_anova$coefficients[1]
+#   b <- reg_anova$coefficients[2]
+#   a <- reg_anova$coefficients[3]
+#
+#   Xv <- - b/2/a
+#   # plot(Gamma~Dist)
+#   # curve(a*x^2 + b*x +c,add=TRUE)
+#
+#   if(Xv < 30 & Xv > 0 ){
+#     return(Xv)
+#   }else{
+#     return(median(Dist))
+#   }
+# }
 

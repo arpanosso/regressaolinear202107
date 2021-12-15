@@ -216,98 +216,157 @@ ch4 <- ch4 |>
 # Krigando para cada ano, e cada estação
 # para isso vamos usar o grid já construído do CO2
 plot(contorno)
+
+# Chutes iniciais para construção dos mapas
 par_list <- read_csv("data/tab.csv")
 par_list <- par_list[-1]
-# par_list <- tibble::as_tibble(
-#   expand.grid(ano = 2009:2020,
-#               estacao = c("dry","wet"),psill = 200,
-#               model = "Gau",
-#               range = 15,
-#               nugget = 50))
+par_list$cutoff<-30
+par_list$width<-2.2
 
-# Definção das fórmulas para os semivariogramas
+# chutes para i=1
+par_list$cutoff[1] = 28
+par_list$width[1] = 1.2
+par_list$psill[1] = 200
+par_list$model[1] = "Gau"
+par_list$range[1] = 5
+par_list$nugget[1] = 5
+
+# chutes para i=2
+par_list$cutoff[2] = 22
+par_list$width[2] = .5
+par_list$psill[2] = 200
+par_list$model[2] = "Sph"
+par_list$range[2] = 5
+par_list$nugget[2] = 5
+
+# chutes para i=3
+par_list$cutoff[3] = 28
+par_list$width[3] = 2.2
+
+# chutes para i=4
+par_list$cutoff[4] = 20
+par_list$width[4] = 2
+par_list$model[4] = "Sph"
+
+# chutes para i=5
+par_list$cutoff[5] = 28
+par_list$width[5] = 3
+par_list$model[5] = "Sph"
+
+# chutes para i=6
+par_list$cutoff[6] = 28
+par_list$width[6] = 2
+
+# chutes para i=7
+par_list$cutoff[7] = 10
+par_list$width[7] = .8
+
+# chutes para i=8
+par_list$cutoff[8] = 25
+par_list$width[8] = 1.2
+
+# chutes para i=9
+par_list$cutoff[9] = 20
+par_list$width[9] = 1.2
+par_list$model[9] = "Sph"
+
+# chutes para i=10
+par_list$cutoff[10] = 20
+par_list$width[10] = .2
+
+# chutes para i=11
+par_list$cutoff[11] = 24
+par_list$width[11] = 1.2
+
+# chutes para i=12
+par_list$cutoff[12] = 20
+par_list$width[12] = 2.2
+par_list$model[12] = "Sph"
+
+# Definição das fórmulas para os semivariogramas
 form_ch4<-ch4~1
-for(i in 1:nrow(par_list)){
+for(i in 13:nrow(par_list)){
   legenda <- paste0(par_list$ano[i],"-",par_list$estacao[i])
-    ch4_aux <- ch4 |>
-      dplyr::filter(year == par_list$ano[i],
-                    season == par_list$estacao[i])
-    q1 <- quantile(ch4_aux$ch4,.25)
-    q3 <- quantile(ch4_aux$ch4,.75)
+  ch4_aux <- ch4 |>
+    dplyr::filter(year == par_list$ano[i],
+                  season == par_list$estacao[i])
+  q1 <- quantile(ch4_aux$ch4,.25)
+  q3 <- quantile(ch4_aux$ch4,.75)
 
 
-    ch4_aux <- ch4_aux |>
-      dplyr::filter(ch4> q1 & ch4 < q3)
+  ch4_aux <- ch4_aux |>
+    dplyr::filter(ch4> q1 & ch4 < q3)
 
-    ch4_aux |>
-      ggplot(aes(x=longitude, y=latitude, color=ch4)) +
-      geom_point()
+  ch4_aux |>
+    ggplot(aes(x=longitude, y=latitude, color=ch4)) +
+    geom_point()
 
-    ch4_aux <- ch4_aux |>
-      group_by(longitude,latitude) |>
-      summarise(ch4 = mean(ch4, na.rm=TRUE))
+  ch4_aux <- ch4_aux |>
+    group_by(longitude,latitude) |>
+    summarise(ch4 = mean(ch4, na.rm=TRUE))
 
-    # Definindo as coordenada para o objeto sp
-    sp::coordinates(ch4_aux)=~longitude+latitude
+  # Definindo as coordenada para o objeto sp
+  sp::coordinates(ch4_aux)=~longitude+latitude
+  # Semivariograma para Beta
+  vari_ch4 <- gstat::variogram(form_ch4, data=ch4_aux,
+                               cutoff = par_list$cutoff[i],
+                               width = par_list$width[i])
 
-    # Semivariograma para Beta
-    vari_ch4 <- gstat::variogram(form_ch4, data=ch4_aux,
-                                 cutoff = 30,
-                                 width = 2.2)
-
-    m_ch4 <- gstat::fit.variogram(vari_ch4,fit.method = 7,
-                                   gstat::vgm(par_list$psill[i],
-                                              model = par_list$model[i],
-                                              par_list$range[i],
-                                              par_list$nugget[i]))
-    if(m_ch4[[3]][[2]] < 0) m_ch4[[3]][[2]] <- 15
-    if(m_ch4[[3]][[2]] > 30) m_ch4[[3]][[2]] <- 15
-    if(m_ch4[[2]][[2]] > 600) m_ch4[[2]][[2]] <- 600
-    print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
-               main = legenda))
-
-    png(paste0("imagens/variograma_ch4_",legenda,".png"),
-        width = 1024, height = 768)
-    print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
-               main = legenda))
-    dev.off()
+  m_ch4 <- gstat::fit.variogram(vari_ch4,fit.method = 7,
+                                gstat::vgm(par_list$psill[i],
+                                           model = par_list$model[i],
+                                           par_list$range[i],
+                                           par_list$nugget[i]))
+  if(i==1){m_ch4$psill <- c(5,40); m_ch4$range[2] <- 10}
+  if(i==3){m_ch4$model[2] <- "Gau"; m_ch4$psill <- c(5,20);m_ch4$range[2] <- 10}
+  if(i==5){ m_ch4$psill <- c(2,50);m_ch4$range[2] <- 20}
 
 
-    #Refinando o gradeado
-    x<-ch4_aux$longitude
-    y<-ch4_aux$latitude
-    dis <- 0.5 #Distância entre pontos
-    grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
-                        Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
-    sp::gridded(grid) = ~ X + Y
-    flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
-                           gradeado = grid)
-    flag_br <- apply(flag, 1, sum) != 0
+  print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
+             main = legenda))
 
-    # Krigando metano
-    ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
-                         model=m_ch4,
-                          block=c(0,0),
-                          nsim=0,
-                          na.action=na.pass,
-                          debug.level=-1,
-    )
-
-    krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
-      tibble::add_column(flag_br) |>
-      dplyr::filter(flag_br) |>
-      ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
-      ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
-      ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
-      ggplot2::coord_equal()+
-      ggplot2::labs(title=legenda,
-                    fill="ch4") +
-      ggplot2::theme_bw()
-
-    png(paste0("imagens/krigagem_ch4_",legenda,".png"),
-        width = 1024, height = 768)
-    print(krigagem_ch4)
-    dev.off()
+  # png(paste0("imagens/variograma_ch4_",legenda,".png"),
+  #     width = 1024, height = 768)
+  # print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
+  #            main = legenda))
+  # dev.off()
+  #
+  #
+  # #Refinando o gradeado
+  # x<-ch4_aux$longitude
+  # y<-ch4_aux$latitude
+  # dis <- 0.5 #Distância entre pontos
+  # grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
+  #                      Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
+  # sp::gridded(grid) = ~ X + Y
+  # flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
+  #                        gradeado = grid)
+  # flag_br <- apply(flag, 1, sum) != 0
+  #
+  # # Krigando metano
+  # ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
+  #                      model=m_ch4,
+  #                       block=c(0,0),
+  #                       nsim=0,
+  #                       na.action=na.pass,
+  #                       debug.level=-1,
+  # )
+  #
+  # krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
+  #   tibble::add_column(flag_br) |>
+  #   dplyr::filter(flag_br) |>
+  #   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+  #   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+  #   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+  #   ggplot2::coord_equal()+
+  #   ggplot2::labs(title=legenda,
+  #                 fill="ch4") +
+  #   ggplot2::theme_bw()
+  #
+  # png(paste0("imagens/krigagem_ch4_",legenda,".png"),
+  #     width = 1024, height = 768)
+  # print(krigagem_ch4)
+  # dev.off()
 }
 
 
