@@ -2,6 +2,7 @@ library(tidyverse)
 library(rgdal)
 library(sp)
 library(raster)
+library(readr)
 source("R/meu-tema.R")
 source("R/minhas-funcoes.R")
 source("R/polis.R")
@@ -215,13 +216,14 @@ ch4 <- ch4 |>
 # Krigando para cada ano, e cada estação
 # para isso vamos usar o grid já construído do CO2
 plot(contorno)
-
-par_list <- tibble::as_tibble(
-  expand.grid(ano = 2009:2020,
-              estacao = c("dry","wet"),psill = 200,
-              model = "Gau",
-              range = 15,
-              nugget = 50))
+par_list <- read_csv("data/tab.csv")
+par_list <- par_list[-1]
+# par_list <- tibble::as_tibble(
+#   expand.grid(ano = 2009:2020,
+#               estacao = c("dry","wet"),psill = 200,
+#               model = "Gau",
+#               range = 15,
+#               nugget = 50))
 
 # Definção das fórmulas para os semivariogramas
 form_ch4<-ch4~1
@@ -254,10 +256,10 @@ for(i in 1:nrow(par_list)){
                                  width = 2.2)
 
     m_ch4 <- gstat::fit.variogram(vari_ch4,fit.method = 7,
-                                   gstat::vgm(200,
-                                              model = "Gau",
-                                              15,
-                                              50))
+                                   gstat::vgm(par_list$psill[i],
+                                              model = par_list$model[i],
+                                              par_list$range[i],
+                                              par_list$nugget[i]))
     if(m_ch4[[3]][[2]] < 0) m_ch4[[3]][[2]] <- 15
     if(m_ch4[[3]][[2]] > 30) m_ch4[[3]][[2]] <- 15
     if(m_ch4[[2]][[2]] > 600) m_ch4[[2]][[2]] <- 600
@@ -272,40 +274,40 @@ for(i in 1:nrow(par_list)){
 
 
     #Refinando o gradeado
-    # x<-ch4_aux$longitude
-    # y<-ch4_aux$latitude
-    # dis <- 0.5 #Distância entre pontos
-    # grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
-    #                     Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
-    # sp::gridded(grid) = ~ X + Y
-    # flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
-    #                        gradeado = grid)
-    # flag_br <- apply(flag, 1, sum) != 0
+    x<-ch4_aux$longitude
+    y<-ch4_aux$latitude
+    dis <- 0.5 #Distância entre pontos
+    grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
+                        Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
+    sp::gridded(grid) = ~ X + Y
+    flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
+                           gradeado = grid)
+    flag_br <- apply(flag, 1, sum) != 0
 
     # Krigando metano
-    # ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
-    #                      model=m_ch4,
-    #                       block=c(0,0),
-    #                       nsim=0,
-    #                       na.action=na.pass,
-    #                       debug.level=-1,
-    # )
-    #
-    # krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
-    #   tibble::add_column(flag_br) |>
-    #   dplyr::filter(flag_br) |>
-    #   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
-    #   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
-    #   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
-    #   ggplot2::coord_equal()+
-    #   ggplot2::labs(title=legenda,
-    #                 fill="ch4") +
-    #   ggplot2::theme_bw()
-    #
-    # png(paste0("imagens/krigagem_ch4_",legenda,".png"),
-    #     width = 1024, height = 768)
-    # print(krigagem_ch4)
-    # dev.off()
+    ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
+                         model=m_ch4,
+                          block=c(0,0),
+                          nsim=0,
+                          na.action=na.pass,
+                          debug.level=-1,
+    )
+
+    krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
+      tibble::add_column(flag_br) |>
+      dplyr::filter(flag_br) |>
+      ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+      ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+      ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+      ggplot2::coord_equal()+
+      ggplot2::labs(title=legenda,
+                    fill="ch4") +
+      ggplot2::theme_bw()
+
+    png(paste0("imagens/krigagem_ch4_",legenda,".png"),
+        width = 1024, height = 768)
+    print(krigagem_ch4)
+    dev.off()
 }
 
 
