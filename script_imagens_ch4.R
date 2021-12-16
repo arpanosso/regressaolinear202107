@@ -344,7 +344,6 @@ for(i in 1:nrow(par_list)){
   print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
              main = legenda))
   dev.off()
-
   sqr<-attr(m_ch4, "SSErr")
 
    if(i==1) {
@@ -368,40 +367,74 @@ for(i in 1:nrow(par_list)){
     tab_par_ajust <- rbind(tab_par_ajust,tab_par_aux)
   }
   # #Refinando o gradeado
-  # x<-ch4_aux$longitude
-  # y<-ch4_aux$latitude
-  # dis <- 0.5 #Distância entre pontos
-  # grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
-  #                      Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
-  # sp::gridded(grid) = ~ X + Y
-  # flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
-  #                        gradeado = grid)
-  # flag_br <- apply(flag, 1, sum) != 0
-  #
-  # # Krigando metano
-  # ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
-  #                      model=m_ch4,
-  #                      block=c(0,0),
-  #                      nsim=0,
-  #                      na.action=na.pass,
-  #                      debug.level=-1,
-  # )
-  #
-  # krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
-  #   tibble::add_column(flag_br) |>
-  #   dplyr::filter(flag_br) |>
-  #   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
-  #   ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
-  #   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
-  #   ggplot2::coord_equal()+
-  #   ggplot2::labs(title=legenda,
-  #                 fill="ch4") +
-  #   ggplot2::theme_bw()
-  #
-  # png(paste0("imagens/krigagem_ch4_",legenda,".png"),
-  #     width = 1024, height = 768)
-  # print(krigagem_ch4)
-  # dev.off()
+  x<-ch4_aux$longitude
+  y<-ch4_aux$latitude
+  dis <- 0.25 #Distância entre pontos
+  grid <- expand.grid(X=seq(min(x,contorno$X),max(x,contorno$X),dis),
+                       Y=seq(min(y,contorno$Y),max(y,contorno$Y),dis))
+  sp::gridded(grid) = ~ X + Y
+  flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom,
+                         gradeado = grid)
+  flag_br <- apply(flag, 1, sum) != 0
+
+  # Krigando metano
+  ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
+                       model=m_ch4,
+                       block=c(0,0),
+                       nsim=0,
+                       na.action=na.pass,
+                       debug.level=-1,
+  )
+
+
+  #######################################################
+  writeGDAL(ko_ch4, paste0('tifs/krigagem_methane_',par_list$ano[i],'_',
+                           par_list$estacao[i],'.tif'),drivername = "GTiff")
+  ######################################################
+
+  krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
+    tibble::add_column(flag_br) |>
+    dplyr::filter(flag_br) |>
+    ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+    ggplot2::geom_tile(ggplot2::aes(fill = var1.pred)) +
+    ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+    ggplot2::coord_equal()+
+    ggplot2::labs(title=legenda,
+                  fill="ch4") +
+    ggplot2::theme_bw()
+
+  png(paste0("imagens/krigagem_ch4_",legenda,".png"),
+      width = 1024, height = 768)
+  print(krigagem_ch4)
+  dev.off()
+
+  # vamos pegar os valores krigados de krigagem
+  ko_ch4_aux <- tibble::as_tibble(ko_ch4) |>
+    tibble::add_column(flag_br) |>
+    dplyr::filter(flag_br)
+
+  ko_aux <- ko_ch4_aux |>
+    dplyr::select(X,Y)
+  ko_aux$ch4 <- ko_ch4_aux$var1.pred
+  ko_aux$Ano <- par_list$ano[i]
+  ko_aux$Estacao <- par_list$estacao[i]
+
+
+  ko_aux<-ko_aux |>
+    mutate(
+      flag_norte = def_pol(X, Y, pol_norte),
+      flag_nordeste = def_pol(X, Y, pol_nordeste),
+      flag_centroeste = def_pol(X, Y, pol_centroeste),
+      flag_sudeste = def_pol(X, Y, pol_sudeste),
+      flag_sul = def_pol(X, Y, pol_sul)
+    )
+
+  if(i == 1){
+    ko_final <- ko_aux
+  }else{
+    ko_final <- rbind(ko_final,ko_aux)
+  }
+
 }
 
 tab_par_ajust <- tab_par_ajust %>%
@@ -412,46 +445,11 @@ tab_par_ajust <- tab_par_ajust %>%
     GDE = ifelse(Modelo=="EPP",0,100*C0/(C0+Patamar))
   )
 
-write.table(tab_par_ajust)
+write.table(tab_par_ajust,"Data/ajustes.txt",
+            row.names = FALSE,quote = FALSE,sep="\t")
 
-
-# # vamos pegar os valores krigados de krigagem
-# ko_beta_aux <- tibble::as_tibble(ko_beta) |>
-#   tibble::add_column(flag_br) |>
-#   dplyr::filter(flag_br)
-#
-# ko_anom_aux <- tibble::as_tibble(ko_anom) |>
-#   tibble::add_column(flag_br) |>
-#   dplyr::filter(flag_br)
-#
-# ko_fogo_aux <- tibble::as_tibble(ko_fogo) |>
-#   tibble::add_column(flag_br) |>
-#   dplyr::filter(flag_br)
-#
-# ko_aux <- ko_beta_aux |>
-#   dplyr::select(X,Y)
-# ko_aux$Beta <- ko_beta_aux$var1.pred
-# ko_aux$Anom <- ko_anom_aux$var1.pred
-# ko_aux$Fogo <- ko_fogo_aux$var1.pred
-# ko_aux$ano <- ano
-#
-#
-# ko_aux<-ko_aux |>
-#   mutate(
-#     flag_norte = def_pol(X, Y, pol_norte),
-#     flag_nordeste = def_pol(X, Y, pol_nordeste),
-#     flag_centroeste = def_pol(X, Y, pol_centroeste),
-#     flag_sudeste = def_pol(X, Y, pol_sudeste),
-#     flag_sul = def_pol(X, Y, pol_sul)
-#   )
-#
-# if(ano == 2009){
-#   ko_final <- ko_aux
-# }else{
-#   ko_final <- rbind(ko_final,ko_aux)
-# }
-
-
+write.table(ko_final,"Data/ko_ch4.txt",
+            row.names = FALSE,quote = FALSE,sep="\t")
 
 
 
