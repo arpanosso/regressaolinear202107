@@ -217,82 +217,95 @@ ch4 <- ch4 |>
 # para isso vamos usar o grid já construído do CO2
 plot(contorno)
 
-# Chutes iniciais para construção dos mapas
-par_list <- read_csv("data/tab.csv")
-par_list <- par_list[-1]
-par_list$cutoff<-30
-par_list$width<-2.2
 
-# chutes para i=1
-par_list$cutoff[1] = 28
-par_list$width[1] = 1.2
-par_list$psill[1] = 200
-par_list$model[1] = "Gau"
-par_list$range[1] = 5
-par_list$nugget[1] = 5
+  # Chutes iniciais para construção dos mapas
+{
+  par_list <- read_csv("data/tab.csv")
+  par_list <- par_list[-1]
+  par_list$cutoff<-30
+  par_list$width<-2.2
+  par_list[24,3] <- 5
+  par_list[24,4] <- "Sph"
+  par_list[24,5] <- 2
+  par_list[24,6] <- 5
+  par_list[24,7] <- 20
 
-# chutes para i=2
-par_list$cutoff[2] = 22
-par_list$width[2] = .5
-par_list$psill[2] = 200
-par_list$model[2] = "Sph"
-par_list$range[2] = 5
-par_list$nugget[2] = 5
+  # chutes para i=1
+  par_list$cutoff[1] = 28;  par_list$width[1] = 1.2;   par_list$psill[1] = 200
+  par_list$model[1] = "Gau";   par_list$range[1] = 5;   par_list$nugget[1] = 5
 
-# chutes para i=3
-par_list$cutoff[3] = 28
-par_list$width[3] = 2.2
+  # chutes para i=2
+  par_list$cutoff[2] = 22;   par_list$width[2] = .5;  par_list$psill[2] = 200
+  par_list$model[2] = "Sph";  par_list$range[2] = 5;  par_list$nugget[2] = 5
 
-# chutes para i=4
-par_list$cutoff[4] = 20
-par_list$width[4] = 2
-par_list$model[4] = "Sph"
+  # chutes para i=3
+  par_list$cutoff[3] = 28;par_list$width[3] = 2.2
 
-# chutes para i=5
-par_list$cutoff[5] = 28
-par_list$width[5] = 3
-par_list$model[5] = "Sph"
+  # chutes para i=4
+  par_list$cutoff[4] = 15;par_list$width[4] = 2;par_list$model[4] = "Sph"
 
-# chutes para i=6
-par_list$cutoff[6] = 28
-par_list$width[6] = 2
+  # chutes para i=5
+  par_list$cutoff[5] = 25;par_list$width[5] = 2;par_list$model[5] = "Sph"
 
-# chutes para i=7
-par_list$cutoff[7] = 10
-par_list$width[7] = .8
+  # chutes para i=6
+  par_list$cutoff[6] = 28;par_list$width[6] = 2
 
-# chutes para i=8
-par_list$cutoff[8] = 25
-par_list$width[8] = 1.2
+  # chutes para i=7
+  par_list$cutoff[7] = 10;par_list$width[7] = .8
 
-# chutes para i=9
-par_list$cutoff[9] = 20
-par_list$width[9] = 1.2
-par_list$model[9] = "Sph"
+  # chutes para i=8
+  par_list$cutoff[8] = 25;par_list$width[8] = 1.2
 
-# chutes para i=10
-par_list$cutoff[10] = 20
-par_list$width[10] = .2
+  # chutes para i=9
+  par_list$cutoff[9] = 20;par_list$width[9] = 1.2;par_list$model[9] = "Sph"
 
-# chutes para i=11
-par_list$cutoff[11] = 24
-par_list$width[11] = 1.2
+  # chutes para i=10
+  par_list$cutoff[10] = 20;par_list$width[10] = .2
 
-# chutes para i=12
-par_list$cutoff[12] = 20
-par_list$width[12] = 2.2
-par_list$model[12] = "Sph"
+  # chutes para i=11
+  par_list$cutoff[11] = 24;par_list$width[11] = 1.2
 
+  # chutes para i=12
+  par_list$cutoff[12] = 20;par_list$width[12] = 2.2;par_list$model[12] = "Sph"
+
+  # chutes para i=14
+  par_list$cutoff[14] = 20
+
+  # chutes para i=16
+  par_list$cutoff[16] = 20
+
+  # chutes para i=17
+  par_list$model[17] = "Sph"
+
+  # chutes para i=18
+  par_list$model[18] = "Sph"
+
+  # chutes para i=19
+  par_list$model[19] = "Sph";par_list$cutoff[19] = 22
+
+  # chutes para i=20
+  par_list$model[20] = "Gau";par_list$cutoff[19] = 22
+
+  # chutes para i=21
+  par_list$model[21] = "Gau";par_list$cutoff[21] = 28
+
+  # chutes para i=22
+  par_list$model[22] = "Sph";par_list$cutoff[22] = 26
+
+}
+
+tab_par_ajust <- data.frame(
+  Ano="",Estacao="",Modelo="",C0=0,Patamar=0,Alcance=0,SQR=0
+)
 # Definição das fórmulas para os semivariogramas
 form_ch4<-ch4~1
-for(i in 13:nrow(par_list)){
+for(i in 1:nrow(par_list)){
   legenda <- paste0(par_list$ano[i],"-",par_list$estacao[i])
   ch4_aux <- ch4 |>
     dplyr::filter(year == par_list$ano[i],
                   season == par_list$estacao[i])
   q1 <- quantile(ch4_aux$ch4,.25)
   q3 <- quantile(ch4_aux$ch4,.75)
-
 
   ch4_aux <- ch4_aux |>
     dplyr::filter(ch4> q1 & ch4 < q3)
@@ -319,19 +332,41 @@ for(i in 13:nrow(par_list)){
                                            par_list$nugget[i]))
   if(i==1){m_ch4$psill <- c(5,40); m_ch4$range[2] <- 10}
   if(i==3){m_ch4$model[2] <- "Gau"; m_ch4$psill <- c(5,20);m_ch4$range[2] <- 10}
-  if(i==5){ m_ch4$psill <- c(2,50);m_ch4$range[2] <- 20}
-
+  if(i==5){ m_ch4$psill <- c(10,20);m_ch4$range[2] <- 10;m_ch4$model[2] <- "Gau"}
+  if(i==21){ m_ch4$psill <- c(9,6);m_ch4$range[2] <- 12}
+  if(i==23){m_ch4$model[2] <- "Sph"; m_ch4$psill <- c(8,7);m_ch4$range[2] <- 16}
 
   print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
              main = legenda))
 
-  # png(paste0("imagens/variograma_ch4_",legenda,".png"),
-  #     width = 1024, height = 768)
-  # print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
-  #            main = legenda))
-  # dev.off()
-  #
-  #
+  png(paste0("imagens/variograma_ch4_",legenda,".png"),
+      width = 1024, height = 768)
+  print(plot(vari_ch4, model=m_ch4, col=1, pl=F, pch=16,
+             main = legenda))
+  dev.off()
+
+  sqr<-attr(m_ch4, "SSErr")
+
+   if(i==1) {
+     tab_par_ajust$Ano <- par_list$ano[i]
+     tab_par_ajust$Estacao <- par_list$estacao[i]
+     tab_par_ajust$Modelo[i] <- as.character(m_ch4$model[2])
+     tab_par_ajust$C0[i] <- m_ch4$psill[1]
+     tab_par_ajust$Patamar[i] <- sum(m_ch4$psill)
+     tab_par_ajust$Alcance[i] <- m_ch4$range[2]
+     tab_par_ajust$SQR <- sqr
+   }else{
+     tab_par_aux <- data.frame(
+       Ano=par_list$ano[i],
+       Estacao=par_list$estacao[i],
+       Modelo=m_ch4$model[2],
+       C0=m_ch4$psill[1],
+       Patamar=sum(m_ch4$psill),
+       Alcance=m_ch4$range[2],
+       SQR = sqr
+     )
+    tab_par_ajust <- rbind(tab_par_ajust,tab_par_aux)
+  }
   # #Refinando o gradeado
   # x<-ch4_aux$longitude
   # y<-ch4_aux$latitude
@@ -346,10 +381,10 @@ for(i in 13:nrow(par_list)){
   # # Krigando metano
   # ko_ch4<-gstat::krige(formula=form_ch4, ch4_aux, grid,
   #                      model=m_ch4,
-  #                       block=c(0,0),
-  #                       nsim=0,
-  #                       na.action=na.pass,
-  #                       debug.level=-1,
+  #                      block=c(0,0),
+  #                      nsim=0,
+  #                      na.action=na.pass,
+  #                      debug.level=-1,
   # )
   #
   # krigagem_ch4 <- tibble::as_tibble(ko_ch4) |>
@@ -369,8 +404,17 @@ for(i in 13:nrow(par_list)){
   # dev.off()
 }
 
+tab_par_ajust <- tab_par_ajust %>%
+  mutate(
+    Alcance = ifelse(C0 == Patamar, 0, ifelse(Modelo == "Sph",Alcance,
+                     ifelse(Modelo=="Exp",Alcance*3,Alcance*3^.5))),
+    Modelo = ifelse(C0 == Patamar, "EPP",Modelo),
+    GDE = ifelse(Modelo=="EPP",0,100*C0/(C0+Patamar))
+  )
 
-#
+write.table(tab_par_ajust)
+
+
 # # vamos pegar os valores krigados de krigagem
 # ko_beta_aux <- tibble::as_tibble(ko_beta) |>
 #   tibble::add_column(flag_br) |>
