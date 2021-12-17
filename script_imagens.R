@@ -159,7 +159,6 @@ br |>
 
 # Entrada dos dados -------------------------------------------------------
 oco2_br_trend <- readr::read_rds("data/oco2_br_trend.rds")
-plot(contorno)
 
 # Craindo as imagens -----------------------------------------------------
 # Criando o banco de dados
@@ -278,7 +277,6 @@ for( ano in 2015:2020){
   dev.off()
 }
 
-#
 # for(ano in 2015:2020){
 #   oco2_aux <- oco2_betanom |>
 #     dplyr::filter(Ano == ano) |>
@@ -543,6 +541,7 @@ for(ano in 2015:2020){
     ko_final <- rbind(ko_final,ko_aux)
   }
 }
+
 #readr::write_rds(ko_final,"data-raw/ko_final.rds")
 ko_final <- readr::read_rds("data-raw/ko_final.rds")
 
