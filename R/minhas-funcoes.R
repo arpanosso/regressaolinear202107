@@ -146,6 +146,21 @@ linear_reg_ch4 <- function(df, output="beta1"){
   }
 }
 
+get_tif <- function(file){
+  df<-file |>
+    raster() |>
+    rasterToPoints() |>
+    as.data.frame()
+  names(df) <- c("x","y","Umidade")
+  n_split <- lengths(stringr::str_split(file,"/"))
+  nomes <- stringr::str_split(file,"/",simplify = TRUE)[,n_split] |>
+    stringr::str_remove(".tif")
+  df$ano <- nomes
+  return(df)
+}
+
+
+
 # # Função para pegar os chutes iniciais do variograma
 # get_psill <- function(vari){
 #   Gamma <- vari$gamma
