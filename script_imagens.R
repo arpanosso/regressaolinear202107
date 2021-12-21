@@ -81,10 +81,6 @@ co2_nooa |>
   ggplot2::theme_bw() +
   ggplot2::labs(fill="")
 
-
-
-
-
 # CO2 --------------------------------------------------------------------
 "data/oco2.rds" |>
   readr::read_rds() |>
@@ -186,9 +182,6 @@ for(ano in 2015:2020){
      dplyr::group_by(region, latitude, longitude) |>
      tidyr::nest()
 }
-
-
-
 
 #
 #   # Adicionando as colunas da regressão linear
