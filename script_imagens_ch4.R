@@ -493,3 +493,42 @@ dff <- purrr::map_dfr(files_tif,get_tif)
 #              quote = FALSE)
 #
 # }
+
+### dados anuais
+
+arquivos <- list.files(path = "umidade/Mean_Yearly_SMAP/",
+                       pattern = ".tif",
+                       full.names = TRUE)
+
+n_split <- lengths(stringr::str_split(arquivos[1],"/"))
+files <- stringr::str_split(arquivos,"/",simplify = TRUE)[,n_split]
+files_tif <- paste0("umidade/Mean_Yearly_SMAP/",files)
+dff_anual <- purrr::map_dfr(files_tif,get_tif)
+
+# dff_anual<-dff_anual |>
+#   dplyr::mutate(
+#     flag_br = def_pol(x, y, pol_br),
+#     flag_nordeste = def_pol(x, y, pol_nordeste)
+#   ) |>
+#   dplyr::filter(flag_br| flag_nordeste)
+dim(dff_anual)
+names(dff_anual)
+dff_anual <- dff_anual |>
+  dplyr::select(ano, x, y, Umidade)
+
+write.table(dff_anual,"data/umidade_anual.txt",row.names = FALSE,
+           quote = FALSE)
+
+dff_anual <- read.table("data/umidade_anual.txt", h=TRUE)
+
+# for(i in 2015:2020 ){
+#   dff_aux <- dff |>
+#     filter(ano == i)
+#   write.table(dff_aux,
+#               paste0("umidade/Mean_Monthly_SMAP/",
+#                      "umidade_mensal_",i,".txt"),
+#               row.names = FALSE,
+#              quote = FALSE)
+#
+# }
+
