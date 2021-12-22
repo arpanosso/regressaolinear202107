@@ -1,7 +1,4 @@
-# Adicionar o mapa do Brasil
-# com os gráficos Puxando mostrando as regressões subindo,
-# descendo e não mudando.
-# para discutir.
+# Carregando os pacotes e dependências necessárias
 library(tidyverse)
 library(rgdal)
 library(sp)
@@ -11,20 +8,23 @@ source("R/minhas-funcoes.R")
 source("R/polis.R")
 
 # CO2 NOOA ----------------------------------------------------------------
+# Carreganto a atualizando os dados do NOOA
+## pegando os dados
 url <- "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_weekly_mlo.txt"
 co2_nooa <- read.table(url, skip = 49, h=FALSE)
 co2_nooa |> names() <- c("year","month","day","decimal",
                          "CO2_ppm","n_days","year_ago_1",
                          "years_ago_10",
                          "since_1800")
+tail(co2_nooa)
+# processamento inicial
 co2_nooa <- co2_nooa |>
   dplyr::mutate(
     date = lubridate::make_date(year = year, month = month, day = day)
   )
-
-tail(co2_nooa)
 dplyr::glimpse(co2_nooa)
 
+# Gráfico de Keeling mostrando a subida no tempo
 co2_nooa |>
   dplyr::filter(year >= 2015, year <=2020) |>
   dplyr::mutate(dia = difftime(date,"2014-01-09", units = "days")) |>
@@ -43,12 +43,13 @@ co2_nooa |>
   ggplot2::ggplot(ggplot2::aes(x=dia, y=CO2_ppm)) +
   ggplot2::geom_point() +
   ggplot2::geom_smooth(method = "lm") +
-  ggpubr2::stat_regline_equation(ggplot2::aes(+++
+  ggpubr::stat_regline_equation(ggplot2::aes(
     label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw()
 
 
 # Gráfico Keeling ----------------------------------------------------------
+# gráficos por ano para xCO2
 "data/oco2.rds" |>
   readr::read_rds() |>
   dplyr::mutate(
@@ -341,7 +342,7 @@ for( ano in 2015:2020){
 # }
 # readr::write_rds(oco2_betanom_fogo,"data-raw/oco2_betanom_fogo.rds")
 oco2_betanom_fogo <- readr::read_rds("data-raw/oco2_betanom_fogo.rds")
-
+glimpse(oco2_betanom_fogo)
 
 
 
@@ -350,8 +351,6 @@ form_beta<-beta_line~1
 form_anom<-anomaly~1
 form_index<-beta_index~1
 form_fogo<-Area_fogo~1
-
-
 
 for(ano in 2015:2020){
   oco2_aux <- oco2_betanom_fogo |>
@@ -537,6 +536,7 @@ for(ano in 2015:2020){
 
 #readr::write_rds(ko_final,"data-raw/ko_final.rds")
 ko_final <- readr::read_rds("data-raw/ko_final.rds")
+glimpse(ko_final)
 
 # BETA
 ko_final |>
@@ -617,6 +617,14 @@ ko_final |>
   ggplot2::coord_equal()+
   ggplot2::labs(fill="Beta") +
   ggplot2::theme_bw()
+
+
+######
+
+
+ko_final_ch4 <- read.table("Data/ko_ch4.txt", h=TRUE)
+glimpse(ko_final_ch4)
+
 
 # histogramas_ano ---------------------------------------------------------
 beta_ano<-function(ano){
@@ -727,150 +735,7 @@ br |>
                       alpha=0.2)
 
 
-# validação cruzada -------------------------------------------------------
-validacao_cruzada <- function(variograma, form, dados, sill=.5, range=8, nugget=.1){
-  m.f1 <- gstat::fit.variogram(variograma,fit.method = 7,
-                               gstat::vgm(sill, "Sph", range, nugget))
-  m.f2 <- gstat::fit.variogram(variograma,fit.method = 7,
-                               gstat::vgm(sill, "Exp", range, nugget))
-  m.f3 <- gstat::fit.variogram(variograma,fit.method = 7,
-                               gstat::vgm(sill, "Gau", range, nugget))
 
-  sqr.f1<-round(attr(m.f1, "SSErr"),4); c01<-round(m.f1$psill[[1]],4);
-  c0_c11<-round(sum(m.f1$psill),4);a1<-round(m.f1$range[[2]],2)
-  sqr.f2<-round(attr(m.f2, "SSErr"),4); c02<-round(m.f2$psill[[1]],4);
-  c0_c12<-round(sum(m.f2$psill),4);a2<-round(3*m.f2$range[[2]],2)
-  sqr.f3<-round(attr(m.f3, "SSErr"),4); c03<-round(m.f3$psill[[1]],4);
-  c0_c13<-round(sum(m.f3$psill),4);a3<-round(m.f3$range[[2]]*3^.5,2)
-  print(plot(variograma,model=m.f1, col=1,pl=F,pch=16,cex=1.2,cex.main=7,ylab=list("Semivariância",cex=1.3),xlab=list("Distância de Separação h (m)",cex=1.3),main =paste("Esf(C0= ",c01,"; C0+C1= ", c0_c11, "; a= ", a1,"; SQR = ", sqr.f1,")",sep="")))
-  print(plot(variograma,model=m.f2, col=1,pl=F,pch=16,cex=1.2,cex.main=7,ylab=list("Semivariância",cex=1.3),xlab=list("Distância de Separação h (m)",cex=1.3),main =paste("Exp(C0= ",c02,"; C0+C1= ", c0_c12, "; a= ", a2,"; SQR = ", sqr.f2,")",sep="")))
-  print(plot(variograma,model=m.f3, col=1,pl=F,pch=16,cex=1.2,cex.main=7,ylab=list("Semivariância",cex=1.3),xlab=list("Distância de Separação h (m)",cex=1.3),main =paste("Gau(C0= ",c03,"; C0+C1= ", c0_c13, "; a= ", a3,"; SQR = ", sqr.f3,")",sep="")))
-
-
-
-}
-validacao_cruzada(vari_beta, form_beta, oco2_aux)
-
-modelos<-list(m.f1,m.f2,m.f3)
-for(j in 1:3){
-  est<-0
-  vari<-as.character(form)[2]
-  for(i in 1:length(dados[vari])){
-    valid <- gstat::krige(formula=form, dados[vari][-i,], dados, model=modelos[[j]])
-    est[i]<-valid$var1.pred[i]
-  }
-  # obs<-as.data.frame(dados[vari])[,1]
-  # RMSE<-round((sum((obs-est)^2)/length(obs))^.5,3)
-  # mod<-lm(obs~est)
-  # b<-round(mod$coefficients[2],3)
-  # se<-round(summary(mod)$coefficients[4],3)
-  # r2<-round(summary(mod)$r.squared,3)
-  # a<-round(mod$coefficients[1],3)
-  # plot(est,obs,xlab="Estimado", ylab="Observado",pch=j,col="blue",
-  #      main=paste("Modelo = ",modelos[[j]][2,1],"; Coef. Reg. = ", b, " (SE = ",se, ", r2 = ", r2,")\ny intersept = ",a,"RMSE = ",RMSE ))
-  # abline(lm(obs~est));
-  # abline(0,1,lty=3)
-}
-# Validação Cruzada
-
-
-########################################################
-#	 ESCOLHA O MODELO MELHOR AJUSTADO                #
-########################################################
-m.nc <- fit.variogram(v.nc,vgm(patamar,"Sph",alcance,epepita)) # com valores iniciais de C0, C1 e a
-
-
-# Raster - Carlos Silva ---------------------------------------------------
-
-# https://www.neonscience.org/resources/learning-hub/tutorials/raster-data-r
-library(raster)
-library(rgdal)
-library(ggplot2)
-library(dplyr)
-
-# buscando informações dO RASTER
-
-GDALinfo("raster/Burned_BR_2015.tif")
-
-
-# vamos ler o raster
-
-burned_BR_2015 <- raster("raster/Burned_BR_2015.tif")
-plot(burned_BR_2015)
-image(burned_BR_2015)
-summary(burned_BR_2015)
-
-memory.limit()
-# memory.limit(size=5000)
-burned_BR_2015_df <- as.data.frame(burned_BR_2015, xy=TRUE)
-burned_BR_2015_df <- burned_BR_2015_df |>
-  filter(!is.nan(Burned_BR_2015))
-
-ggplot() +
-  geom_raster(data = burned_BR_2015_df,
-              aes(x = x, y = y, fill = Burned_BR_2015)) +
-  scale_fill_viridis_c() +
-  coord_quickmap() +
-  theme_minimal()
-
-
-
-burned_BR_2015_df |>
-  ggplot(aes(x=Burned_BR_2015)) +
-  geom_histogram(bins=30,
-                 color="black",
-                 fill="orange")
-
-
-# https://www.neonscience.org/resources/learning-hub/tutorials/dc-shapefile-attributes-r
-layers_br<- c("Burned_BR_2015","Burned_BR_2016","Burned_BR_2017",
-              "Burned_BR_2018","Burned_BR_2019","Burned_BR_2020")
-burned_BR_2015 <- readOGR(
-  dsn="raster",
-  layer="Burned_BR_2015",
-  verbose=FALSE
-)
-class(burned_BR_2015)
-crs(burned_BR_2015)
-extent(burned_BR_2015)
-burned_BR_2015@data
-summary(burned_BR_2015)
-
-#raster::geom(burned_BR_2015)
-#ggplot2::fortify(burned_BR_2015)
-df_raster <- as.data.frame(as(
-  as(burned_BR_2015,"SpatialLinesDataFrame"),
-  "SpatialPointsDataFrame"))
-names(df_raster)
-library(tidyverse)
-dados<-df_raster |>
-  group_by(Lines.ID) |>
-  summarise(Area = mean(Area,na.rm=TRUE),
-            Long = mean(coords.x1,na.rm=TRUE),
-            Lat = mean(coords.x2,na.rm=TRUE))
-
-dados |>
-  summarise(Area = mean(Area,na.rm=TRUE))
-
-
-df <- burned_BR_2015@data
-names(df)
-df |>
-  filter("Id" == 126)
-
-for(i in 1:length(layers_br)){
-  burned_BR <- readOGR(
-    dsn="raster",
-    layer=layers_br[i],
-    verbose=FALSE
-  )
-  print(layers_br[i])
-  print(summary(burned_BR))
-  cat("\n")
-
-  burned_BR@data
-  burned_BR$x
-}
 
 areas <- c(529.15,523.8,637.6,367.71,657.0,737.9)
 betas <- c(5.33, 3.31, 3.04, 3.78, 4.56, 6.46)
