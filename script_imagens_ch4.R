@@ -451,7 +451,7 @@ write.table(tab_par_ajust,"Data/ajustes.txt",
 write.table(ko_final,"Data/ko_ch4.txt",
             row.names = FALSE,quote = FALSE,sep="\t")
 
-getwd()
+
 ko_final <- read.table("Data\\ko_ch4.txt", h=TRUE)
 glimpse(ko_final)
 
@@ -483,16 +483,16 @@ dff <- purrr::map_dfr(files_tif,get_tif)
 #            quote = FALSE)
 # dff <- read.table("data/umidade.txt", h=TRUE)
 
-# for(i in 2015:2020 ){
-#   dff_aux <- dff |>
-#     filter(ano == i)
-#   write.table(dff_aux,
-#               paste0("umidade/Mean_Monthly_SMAP/",
-#                      "umidade_mensal_",i,".txt"),
-#               row.names = FALSE,
-#              quote = FALSE)
-#
-# }
+for(i in 2015:2020 ){
+  dff_aux <- dff |>
+    filter(ano == i)
+  write.table(dff_aux,
+              paste0("umidade/Mean_Monthly_SMAP/",
+                     "umidade_mensal_",i,".txt"),
+              row.names = FALSE,
+             quote = FALSE)
+
+}
 
 arquivos <- list.files(path = "umidade/Mean_Monthly_SMAP/",
                        pattern = ".txt",

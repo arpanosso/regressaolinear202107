@@ -37,7 +37,7 @@ co2_nooa |>
   ggplot2::theme_bw()
 
 co2_nooa |>
-  dplyr::filter(year %in% 2016:2017) |>
+  dplyr::filter(year %in% 2016:2024) |>
   dplyr::mutate(dia = difftime(date,"2014-01-09", units = "days")) |>
   dplyr::group_by(year, day) |>
   ggplot2::ggplot(ggplot2::aes(x=dia, y=CO2_ppm)) +
@@ -138,6 +138,7 @@ lm(y~x)
 
 
 # Figura Artigo mapa ------------------------------------------------------
+br <- geobr::read_country()
 br |>
   ggplot2::ggplot() +
   ggplot2::geom_sf(fill="white", color="black",
@@ -537,7 +538,7 @@ for(ano in 2015:2020){
 #readr::write_rds(ko_final,"data-raw/ko_final.rds")
 ko_final <- readr::read_rds("data-raw/ko_final.rds")
 glimpse(ko_final)
-
+ko_final$ano %>% unique()
 # BETA
 ko_final |>
   dplyr::filter(flag_norte) |>

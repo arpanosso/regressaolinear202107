@@ -22,65 +22,65 @@ ko_ch4 |>
   geom_point()
 
 # retirando os pontos mais próximos de ch4
-todos <- ko_xco2
-for(i in 2015:2020){
-  aux_xco2 <- ko_xco2 |>
-    filter(ano == i)
-  aux_ch4_wet <-   ko_ch4 |>
-    filter(Ano == i, Estacao == "wet")
-  aux_ch4_dry <-   ko_ch4 |>
-    filter(Ano == i, Estacao == "dry")
-  dff_anual_aux <- dff_anual |>
-    filter(ano == i)
-  vct_umidade <- vector(); dist_ch4_dry <- vector()
-  vct_ch4_wet <- vector(); dist_ch4_wet <- vector()
-  vct_ch4_dry <- vector(); dist_umid <- vector()
-  for( j in 1:nrow(aux_xco2)){ #
-    d <-  sqrt((aux_xco2$X[j]-dff_anual_aux$x)^2 +
-                 (aux_xco2$Y[j]-dff_anual_aux$y)^2)
-    indice_menor <- order(d)[1]
-    vct_umidade[j] <- dff_anual_aux$Umidade[indice_menor]
-    dist_umid[j] <- d[order(d)[1]]
-
-    d <-  sqrt((aux_xco2$X[j]-aux_ch4_wet$X)^2 +
-                 (aux_xco2$Y[j]-aux_ch4_wet$Y)^2)
-    indice_menor <- order(d)[1]
-    vct_ch4_wet[j] <- aux_ch4_wet$ch4[indice_menor]
-    dist_ch4_wet[j] <- d[order(d)[1]]
-
-
-    d <-  sqrt((aux_xco2$X[j]-aux_ch4_dry$X)^2 +
-                 (aux_xco2$Y[j]-aux_ch4_dry$Y)^2)
-    indice_menor <- order(d)[1]
-    vct_ch4_dry[j] <- aux_ch4_dry$ch4[indice_menor]
-    dist_ch4_dry[j] <- d[order(d)[1]]
-    print(paste0(i,": ",j,"(",nrow(aux_xco2),")"))
-  }
-  aux_xco2$dist_umid <- dist_umid
-  aux_xco2$umidade <- vct_umidade
-  aux_xco2$dist_ch4_wet <- dist_ch4_wet
-  aux_xco2$ch4_wet <- vct_ch4_wet
-  aux_xco2$dist_ch4_dry <- dist_ch4_dry
-  aux_xco2$ch4_dry <- vct_ch4_dry
-  if(i == 2015){
-    todos <- aux_xco2
-  }else{
-    todos <- rbind(todos, aux_xco2)
-  }
-}
-glimpse(todos)
-todos <- todos |>
-  mutate(ch4 = (ch4_dry+ch4_wet)/2)
-readr::write_rds(todos,"data/data_set.rds")
+# todos <- ko_xco2
+# for(i in 2015:2020){
+#   aux_xco2 <- ko_xco2 |>
+#     filter(ano == i)
+#   aux_ch4_wet <-   ko_ch4 |>
+#     filter(Ano == i, Estacao == "wet")
+#   aux_ch4_dry <-   ko_ch4 |>
+#     filter(Ano == i, Estacao == "dry")
+#   dff_anual_aux <- dff_anual |>
+#     filter(ano == i)
+#   vct_umidade <- vector(); dist_ch4_dry <- vector()
+#   vct_ch4_wet <- vector(); dist_ch4_wet <- vector()
+#   vct_ch4_dry <- vector(); dist_umid <- vector()
+#   for( j in 1:nrow(aux_xco2)){ #
+#     d <-  sqrt((aux_xco2$X[j]-dff_anual_aux$x)^2 +
+#                  (aux_xco2$Y[j]-dff_anual_aux$y)^2)
+#     indice_menor <- order(d)[1]
+#     vct_umidade[j] <- dff_anual_aux$Umidade[indice_menor]
+#     dist_umid[j] <- d[order(d)[1]]
+#
+#     d <-  sqrt((aux_xco2$X[j]-aux_ch4_wet$X)^2 +
+#                  (aux_xco2$Y[j]-aux_ch4_wet$Y)^2)
+#     indice_menor <- order(d)[1]
+#     vct_ch4_wet[j] <- aux_ch4_wet$ch4[indice_menor]
+#     dist_ch4_wet[j] <- d[order(d)[1]]
+#
+#
+#     d <-  sqrt((aux_xco2$X[j]-aux_ch4_dry$X)^2 +
+#                  (aux_xco2$Y[j]-aux_ch4_dry$Y)^2)
+#     indice_menor <- order(d)[1]
+#     vct_ch4_dry[j] <- aux_ch4_dry$ch4[indice_menor]
+#     dist_ch4_dry[j] <- d[order(d)[1]]
+#     # print(paste0(i,": ",j,"(",nrow(aux_xco2),")"))
+#   }
+#   aux_xco2$dist_umid <- dist_umid
+#   aux_xco2$umidade <- vct_umidade
+#   aux_xco2$dist_ch4_wet <- dist_ch4_wet
+#   aux_xco2$ch4_wet <- vct_ch4_wet
+#   aux_xco2$dist_ch4_dry <- dist_ch4_dry
+#   aux_xco2$ch4_dry <- vct_ch4_dry
+#   if(i == 2015){
+#     todos <- aux_xco2
+#   }else{
+#     todos <- rbind(todos, aux_xco2)
+#   }
+# }
+# glimpse(todos)
+# todos <- todos |>
+#   mutate(ch4 = (ch4_dry+ch4_wet)/2)
+# readr::write_rds(todos,"data/data_set.rds")
 data_set <- readr::read_rds("data/data_set.rds")
 
-# todos |>
-#   sample_n(9000) |>
-#   filter(ano == 2015) |>
-#   ggplot(aes(x=X, y=Y)) +
-#   geom_point()
+data_set |>
+  sample_n(9000) |>
+  filter(ano == 2015) |>
+  ggplot(aes(x=X, y=Y)) +
+  geom_point()
 
-todos <- todos |>
+todos <- data_set |>
  mutate(ch4 = (ch4_dry+ch4_wet)/2)
 
 names(todos)
@@ -106,4 +106,74 @@ todos |>
   ggplot(aes(x=Beta, y=umidade)) +
   geom_point() +
   facet_wrap(~reg)
+
+
+todos %>%
+  filter(ano == 2020) %>%
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+  ggplot2::geom_tile(ggplot2::aes(fill = Beta)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="CH4") +
+  ggspatial::annotation_scale(
+    location="bl",
+    plot_unit="km",
+    height = ggplot2::unit(0.2,"cm"))
+
+todos %>%
+  filter(flag_nordeste) %>%
+  group_by(ano) %>%
+  summarise(
+    ch4 = mean(ch4)
+  )  %>%
+  ggplot(aes(x=ano, y=ch4)) +
+  geom_line()
+
+aninhado <- todos %>%
+       dplyr::select(X,Y,ano,ch4) %>%
+       nest(data=ano:ch4)
+
+## Criar o Betach4
+beta_ch4 <- function(df) {
+  x <- df %>% pull(ano)
+  y <- df %>% pull(ch4)
+  mod <- lm(y~x)
+  mod$coefficients[[2]]
+  obj <- summary.lm(mod)
+  obj$coefficients[2,2]
+}
+beta_ch4(aninhado$data[[1]])
+
+
+aninhado <- aninhado %>%
+  mutate(
+    betach4 = purrr::map(data,beta_ch4)
+  ) %>%
+  select(X, Y, betach4) %>%
+  ungroup()
+
+aninhado %>%
+  ungroup() %>%
+  unnest(betach4) %>%
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+  ggplot2::geom_tile(ggplot2::aes(fill = betach4)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+  ggplot2::coord_equal()+
+  ggplot2::labs(fill="CH4") +
+  ggspatial::annotation_scale(
+    location="bl",
+    plot_unit="km",
+    height = ggplot2::unit(0.2,"cm"))
+
+
+
+
+
+
+
+
+
+
+
+
 
