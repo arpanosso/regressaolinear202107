@@ -353,6 +353,7 @@ oco2_nest <- oco2_nest |>
     #plot = purrr::map(data,linear_reg, output="plot"),
     #hist = purrr::map(data,linear_reg, output="hist")
   )
+oco2_nest$data[[1]]
 ```
 
 ```{r}

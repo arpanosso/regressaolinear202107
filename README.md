@@ -7,6 +7,11 @@
 
 ### Data: 31/08/2021
 
+Projeto final apresentado os instrutores **Athos Damiani** e **Fernando
+Correa** da [curso-R](https://curso-r.com/) como parte das exigências
+para a finalização do curso de **Regressão Linear** (Trilha de Machine
+Learning - Turma Agosto 2021).
+
 ## Introdução
 
 As concentrações atmosféricas de gases do efeito estufa (GEE) têm
@@ -39,7 +44,7 @@ importantes para uma determinada região, haja visto que se
 **β<sub>1</sub>’** (observado para essa região) for significativamente
 maior ao **β<sub>1</sub>** padrão (observado para uma macro-região), tal
 área poderá ser considerada uma potencial fonte de carbono para a
-atmosfera, caso contrário (**β<sub>1</sub>’** &lt; **β<sub>1</sub>**), a
+atmosfera, caso contrário (**β<sub>1</sub>’** \< **β<sub>1</sub>**), a
 área em questão poderá ser considerada um sumidouro de CO<sub>2</sub>
 atmosférico, mitigando o efeito estufa adicional e, consequentemente, as
 mudanças climáticas globais.
@@ -66,37 +71,37 @@ Breve descrição das variáveis da base:
 **longitude**: coordenada geográfica que especifica a posição
 leste-oeste de um ponto na superfície da Terra;
 
-**longitude\_bnds**: são, respectivamente, os limites superior e
-inferior da coordenada, onde a **longitude** para um ponto foi dada pela
-média desses limites;
+**longitude_bnds**: são, respectivamente, os limites superior e inferior
+da coordenada, onde a **longitude** para um ponto foi dada pela média
+desses limites;
 
 **latitude**: é uma coordenada geográfica que especifica a posição
 norte-sul de um ponto na superfície da Terra;
 
-**latitude\_bnds**: são, respectivamente, os limites superior e inferior
+**latitude_bnds**: são, respectivamente, os limites superior e inferior
 da coordenada, onde a **latitude** para um ponto foi dada pela média
 desses limites;
 
-**time\_yyyymmddhhmmss**: data de leitura, em ano, mês, dia, horas
+**time_yyyymmddhhmmss**: data de leitura, em ano, mês, dia, horas
 minutos e segundos;
 
-**time\_bnds\_yyyymmddhhmmss**: limites de tempo utilizados para o
-cálculo da data de leitura;
+**time_bnds_yyyymmddhhmmss**: limites de tempo utilizados para o cálculo
+da data de leitura;
 
-**altitude\_km**: altitude média em km;
+**altitude_km**: altitude média em km;
 
-**alt\_bnds\_km**: limites da altitude, 0 (nível do mar) e altitude do
+**alt_bnds_km**: limites da altitude, 0 (nível do mar) e altitude do
 satélite no momento de leitura;
 
-**fluorescence\_offset\_relative\_771nm\_idp**: Fração de radiância de
-nível contínuo explicada por um termo de deslocamento aditivo na janela
+**fluorescence_offset_relative_771nm_idp**: Fração de radiância de nível
+contínuo explicada por um termo de deslocamento aditivo na janela
 espectral de 757 nm (sem unidade);
 
-**fluorescence\_offset\_relative\_757nm\_idp**: Fração da radiância de
-nível contínuo explicada por um termo de deslocamento aditivo na janela
+**fluorescence_offset_relative_757nm_idp**: Fração da radiância de nível
+contínuo explicada por um termo de deslocamento aditivo na janela
 espectral de 771 nm (sem unidade);
 
-**xco2\_moles\_mole\_1**: Fração molar de ar seco de CO<sub>2</sub> em
+**xco2_moles_mole_1**: Fração molar de ar seco de CO<sub>2</sub> em
 média da coluna.
 
 ``` r
@@ -104,17 +109,17 @@ oco2 <- readr::read_rds("data/oco2.rds")
 dplyr::glimpse(oco2)
 #> Rows: 361,615
 #> Columns: 11
-#> $ longitude                              <dbl> -74.58225, -74.58225, -74.58225~
-#> $ longitude_bnds                         <chr> "-74.70703125:-74.4574652778", ~
-#> $ latitude                               <dbl> -30.22572489, -29.97654828, -29~
-#> $ latitude_bnds                          <chr> "-30.3503131952:-30.1011365845"~
-#> $ time_yyyymmddhhmmss                    <dbl> 2.014091e+13, 2.014091e+13, 2.0~
-#> $ time_bnds_yyyymmddhhmmss               <chr> "20140909000000:20140910000000"~
-#> $ altitude_km                            <dbl> 3307.8, 3307.8, 3307.8, 3307.8,~
-#> $ alt_bnds_km                            <chr> "0.0:6615.59960938", "0.0:6615.~
-#> $ fluorescence_offset_relative_771nm_idp <dbl> 0.012406800, 0.010696600, -0.00~
-#> $ fluorescence_offset_relative_757nm_idp <dbl> -3.58630e+00, 8.81219e-02, -3.6~
-#> $ xco2_moles_mole_1                      <dbl> 0.000394333, 0.000395080, 0.000~
+#> $ longitude                              <dbl> -74.58225, -74.58225, -74.58225…
+#> $ longitude_bnds                         <chr> "-74.70703125:-74.4574652778", …
+#> $ latitude                               <dbl> -30.22572489, -29.97654828, -29…
+#> $ latitude_bnds                          <chr> "-30.3503131952:-30.1011365845"…
+#> $ time_yyyymmddhhmmss                    <dbl> 2.014091e+13, 2.014091e+13, 2.0…
+#> $ time_bnds_yyyymmddhhmmss               <chr> "20140909000000:20140910000000"…
+#> $ altitude_km                            <dbl> 3307.8, 3307.8, 3307.8, 3307.8,…
+#> $ alt_bnds_km                            <chr> "0.0:6615.59960938", "0.0:6615.…
+#> $ fluorescence_offset_relative_771nm_idp <dbl> 0.012406800, 0.010696600, -0.00…
+#> $ fluorescence_offset_relative_757nm_idp <dbl> -3.58630e+00, 8.81219e-02, -3.6…
+#> $ xco2_moles_mole_1                      <dbl> 0.000394333, 0.000395080, 0.000…
 ```
 
 Será necessário transformar os dados de X<sub>CO2</sub>, para *ppm* em
@@ -171,9 +176,11 @@ oco2 |>
   ggpubr::stat_regline_equation(ggplot2::aes(
   label =  paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~~"))) +
   ggplot2::theme_bw()
-#> `summarise()` has grouped output by 'year'. You can override using the `.groups` argument.
-#> Don't know how to automatically pick scale for object of type difftime. Defaulting to continuous.
-#> `geom_smooth()` using formula 'y ~ x'
+#> `summarise()` has grouped output by 'year'. You can override using the
+#> `.groups` argument.
+#> Don't know how to automatically pick scale for object of type <difftime>.
+#> Defaulting to continuous.
+#> `geom_smooth()` using formula = 'y ~ x'
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
@@ -200,20 +207,20 @@ Vamos olhar o diagnóstico da análise.
 
 ``` r
 broom::augment(mod, interval="confidence")
-#> # A tibble: 317 x 10
+#> # A tibble: 317 × 10
 #>    xco2_mean dia   .fitted .lower .upper .resid   .hat .sigma .cooksd .std.resid
 #>        <dbl> <drt>   <dbl>  <dbl>  <dbl>  <dbl>  <dbl>  <dbl>   <dbl>      <dbl>
-#>  1      391. 357.~    392.   392.   392. -0.812 0.0134   1.22 3.06e-3     -0.672
-#>  2      393. 358.~    392.   392.   392.  1.29  0.0133   1.22 7.60e-3      1.06 
-#>  3      393. 359.~    392.   392.   392.  1.00  0.0131   1.22 4.58e-3      0.829
-#>  4      393. 360.~    392.   392.   392.  0.854 0.0130   1.22 3.29e-3      0.706
-#>  5      392. 361.~    392.   392.   392.  0.204 0.0129   1.22 1.86e-4      0.168
-#>  6      392. 366.~    392.   392.   392. -0.389 0.0124   1.22 6.50e-4     -0.322
-#>  7      393. 367.~    392.   392.   392.  0.573 0.0123   1.22 1.40e-3      0.473
-#>  8      393. 368.~    392.   392.   392.  0.879 0.0122   1.22 3.26e-3      0.726
-#>  9      392. 369.~    392.   392.   392.  0.352 0.0121   1.22 5.19e-4      0.291
-#> 10      393. 370.~    392.   392.   392.  1.19  0.0120   1.22 5.89e-3      0.985
-#> # ... with 307 more rows
+#>  1      391. 357.…    392.   392.   392. -0.812 0.0134   1.22 3.06e-3     -0.672
+#>  2      393. 358.…    392.   392.   392.  1.29  0.0133   1.22 7.60e-3      1.06 
+#>  3      393. 359.…    392.   392.   392.  1.00  0.0131   1.22 4.58e-3      0.829
+#>  4      393. 360.…    392.   392.   392.  0.854 0.0130   1.22 3.29e-3      0.706
+#>  5      392. 361.…    392.   392.   392.  0.204 0.0129   1.22 1.86e-4      0.168
+#>  6      392. 366.…    392.   392.   392. -0.389 0.0124   1.22 6.50e-4     -0.322
+#>  7      393. 367.…    392.   392.   392.  0.573 0.0123   1.22 1.40e-3      0.473
+#>  8      393. 368.…    392.   392.   392.  0.879 0.0122   1.22 3.26e-3      0.726
+#>  9      392. 369.…    392.   392.   392.  0.352 0.0121   1.22 5.19e-4      0.291
+#> 10      393. 370.…    392.   392.   392.  1.19  0.0120   1.22 5.89e-3      0.985
+#> # ℹ 307 more rows
 plot(mod)
 ```
 
@@ -337,9 +344,9 @@ regiões do Brasil.
 ``` r
 regiao <- geobr::read_region(showProgress = FALSE)
 #> Loading required namespace: sf
-#> Using year 2010
+#> Using year/date 2010
 br <- geobr::read_country(showProgress = FALSE)
-#> Using year 2010
+#> Using year/date 2010
 ```
 
 Agora podemos extrair os polígonos.
@@ -554,6 +561,16 @@ oco2_nest <- oco2_nest |>
     #plot = purrr::map(data,linear_reg, output="plot"),
     #hist = purrr::map(data,linear_reg, output="hist")
   )
+oco2_nest$data[[1]]
+#> # A tibble: 6 × 4
+#>   dia           xco2_mean regi       id_time      
+#>   <drtn>            <dbl> <chr>      <drtn>       
+#> 1 454.4167 days      394. centroeste 454.4167 days
+#> 2 525.4167 days      392. centroeste 525.4167 days
+#> 3 557.4167 days      394. centroeste 557.4167 days
+#> 4 589.4167 days      397. centroeste 589.4167 days
+#> 5 598.4167 days      398. centroeste 598.4167 days
+#> 6 621.4167 days      394. centroeste 621.4167 days
 ```
 
 ``` r
@@ -680,7 +697,7 @@ plot(vari_anom, model=m_anom, col=1,pl=F,pch=16)
 
 ![](README_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
-### Semivariograma para beta\_index
+### Semivariograma para beta_index
 
 ``` r
 vari_index <- gstat::variogram(form_index, data=oco2_aux,
@@ -709,7 +726,7 @@ ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
+#>   1% done  3% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 55% done 57% done 59% done 60% done 62% done 64% done 66% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
 
 ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom, 
     block=c(0,0),
@@ -718,7 +735,7 @@ ko_anom<-gstat::krige(formula=form_anom, oco2_aux, grid, model=m_anom,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 93% done 94% done 95% done 96% done 97% done 98% done 99% done100% done
+#>   0% done  1% done  2% done  3% done  4% done  5% done  6% done  7% done  8% done  9% done 10% done 11% done 12% done 13% done 14% done 15% done 16% done 17% done 18% done 19% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 33% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 44% done 46% done 48% done 51% done 54% done 56% done 58% done 61% done 63% done 66% done 68% done 70% done 73% done 75% done 78% done 80% done 83% done 85% done 88% done 90% done 93% done 95% done 98% done100% done
 
 ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index, 
     block=c(0,0),
@@ -727,13 +744,12 @@ ko_index<-gstat::krige(formula=form_index, oco2_aux, grid, model=m_index,
     debug.level=-1,  
     )
 #> [using ordinary kriging]
-#>   1% done  2% done  4% done  5% done  6% done  7% done  8% done 10% done 11% done 12% done 13% done 15% done 16% done 17% done 18% done 20% done 21% done 22% done 23% done 24% done 25% done 26% done 27% done 28% done 29% done 30% done 31% done 32% done 34% done 35% done 36% done 37% done 38% done 39% done 40% done 41% done 42% done 43% done 44% done 45% done 46% done 47% done 48% done 49% done 50% done 51% done 52% done 53% done 54% done 55% done 56% done 57% done 58% done 59% done 60% done 61% done 62% done 63% done 64% done 65% done 66% done 67% done 68% done 69% done 70% done 71% done 72% done 73% done 74% done 75% done 76% done 77% done 78% done 79% done 80% done 81% done 82% done 83% done 84% done 85% done 86% done 87% done 88% done 89% done 90% done 91% done 92% done 94% done 95% done 97% done 98% done100% done
+#>   2% done  4% done  7% done  9% done 11% done 14% done 16% done 19% done 22% done 24% done 27% done 29% done 32% done 34% done 37% done 39% done 42% done 45% done 47% done 50% done 52% done 55% done 58% done 60% done 63% done 65% done 68% done 70% done 73% done 75% done 78% done 81% done 83% done 86% done 88% done 91% done 93% done 96% done 98% done100% done
 ```
 
 ``` r
 mapa <- geobr::read_state(showProgress = FALSE)
-#> Using year 2010
-#> Loading data for the whole country
+#> Using year/date 2010
 ```
 
 ``` r
@@ -744,12 +760,33 @@ get_pol_in_pol <- function(indice, lista, gradeado){
 }
 flag <- purrr::map_dfc(1:27, get_pol_in_pol, lista=mapa$geom, gradeado = grid)
 #> New names:
-#> * NA -> ...1
-#> * NA -> ...2
-#> * NA -> ...3
-#> * NA -> ...4
-#> * NA -> ...5
-#> * ...
+#> • `` -> `...1`
+#> • `` -> `...2`
+#> • `` -> `...3`
+#> • `` -> `...4`
+#> • `` -> `...5`
+#> • `` -> `...6`
+#> • `` -> `...7`
+#> • `` -> `...8`
+#> • `` -> `...9`
+#> • `` -> `...10`
+#> • `` -> `...11`
+#> • `` -> `...12`
+#> • `` -> `...13`
+#> • `` -> `...14`
+#> • `` -> `...15`
+#> • `` -> `...16`
+#> • `` -> `...17`
+#> • `` -> `...18`
+#> • `` -> `...19`
+#> • `` -> `...20`
+#> • `` -> `...21`
+#> • `` -> `...22`
+#> • `` -> `...23`
+#> • `` -> `...24`
+#> • `` -> `...25`
+#> • `` -> `...26`
+#> • `` -> `...27`
 flag_br <- apply(flag, 1, sum) != 0
 ```
 
