@@ -17,7 +17,7 @@ ch4 <- readr::read_table("data-raw/GOSAT_CH4_biomas.txt") |>
     data = lubridate::make_date(year,month,day),
     dia = difftime(data,"2009-01-01", units = "days"),
     season = ifelse(month > 3 & month <= 9, "dry", "wet"),
-    ch4 = ifelse(ch4 > 1850, 1775,ch4)
+    ch4 = ifelse(ch4 > 1850, 1775, ch4)
   )
 
 ch4 <- ch4 |>
@@ -131,7 +131,6 @@ ch4 |>
 
 
 # Linear model por ano CH4 ----------------------------------------------------
-
 dados <- ch4 |>
   dplyr::mutate(
     year = lubridate::year(data),

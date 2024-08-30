@@ -1,4 +1,5 @@
 library(tidyverse)
+source("R/meu-tema.R")
 dff_anual <- read.table("data/umidade_anual.txt", h=TRUE)
 ko_xco2 <- readr::read_rds("data-raw/ko_final.rds")
 ko_ch4 <- read.table("Data\\ko_ch4.txt", h=TRUE)
@@ -130,7 +131,7 @@ todos %>%
   geom_line()
 
 aninhado <- todos %>%
-       dplyr::select(X,Y,ano,ch4) %>%
+       dplyr::select(X,Y,ano,Beta,ch4) %>%
        nest(data=ano:ch4)
 
 ## Criar o Betach4
@@ -139,17 +140,28 @@ beta_ch4 <- function(df) {
   y <- df %>% pull(ch4)
   mod <- lm(y~x)
   mod$coefficients[[2]]
-  obj <- summary.lm(mod)
-  obj$coefficients[2,2]
+  # obj <- summary.lm(mod)
+  # obj$coefficients[2,2]
 }
 beta_ch4(aninhado$data[[1]])
+
+beta_xco2 <- function(df) {
+  x <- df %>% pull(ano)
+  y <- df %>% pull(Beta)
+  mod <- lm(y~x)
+  mod$coefficients[[2]]
+  # obj <- summary.lm(mod)
+  # obj$coefficients[2,2]
+}
+beta_xco2(aninhado$data[[1]])
 
 
 aninhado <- aninhado %>%
   mutate(
-    betach4 = purrr::map(data,beta_ch4)
+    betach4 = purrr::map(data,beta_ch4),
+    betaxco2 = purrr::map(data,beta_xco2)
   ) %>%
-  select(X, Y, betach4) %>%
+  select(X, Y, betaxco2, betach4) %>%
   ungroup()
 
 aninhado %>%
@@ -157,23 +169,27 @@ aninhado %>%
   unnest(betach4) %>%
   ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
   ggplot2::geom_tile(ggplot2::aes(fill = betach4)) +
-  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
-  ggplot2::coord_equal()+
-  ggplot2::labs(fill="CH4") +
+  #ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+  ggplot2::scale_fill_viridis_c() +
+  ggplot2::coord_equal() +
+  ggplot2::labs(fill=expression(paste("Beta_",CH[4]))) +
   ggspatial::annotation_scale(
     location="bl",
     plot_unit="km",
-    height = ggplot2::unit(0.2,"cm"))
+    height = ggplot2::unit(0.2,"cm")) +
+  tema_mapa()
 
-
-
-
-
-
-
-
-
-
-
-
-
+aninhado %>%
+  ungroup() %>%
+  unnest(betaxco2) %>%
+  ggplot2::ggplot(ggplot2::aes(x=X, y=Y),color="black") +
+  ggplot2::geom_tile(ggplot2::aes(fill = betaxco2)) +
+  ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
+  #ggplot2::scale_fill_viridis_c() +
+  ggplot2::coord_equal() +
+  ggplot2::labs(fill=expression(paste("Beta_",CO[2]))) +
+  ggspatial::annotation_scale(
+    location="bl",
+    plot_unit="km",
+    height = ggplot2::unit(0.2,"cm")) +
+  tema_mapa()

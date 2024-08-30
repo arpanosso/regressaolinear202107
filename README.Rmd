@@ -446,6 +446,15 @@ oco2_aux |>
 ```
 
 ```{r}
+oco2_aux <- oco2_aux |>
+  dplyr::group_by(longitude,latitude) |> 
+  dplyr::summarise(
+    beta_line = mean(beta_line),
+    partial = mean(partial),
+    anomaly = mean(anomaly),
+    Dbeta = mean(Dbeta),
+    beta_index = mean(beta_index)
+  ) |> dplyr::ungroup()
 sp::coordinates(oco2_aux)=~ longitude+latitude  
 form_beta<-beta_line~1
 form_anom<-anomaly~1
@@ -491,7 +500,7 @@ sp::gridded(grid) = ~ X + Y
 
 ```{r}
 ko_beta<-gstat::krige(formula=form_beta, oco2_aux, grid, model=m_beta, 
-    block=c(1,1),
+    block=c(0,0),
     nsim=0,
     na.action=na.pass,
     debug.level=-1,  
