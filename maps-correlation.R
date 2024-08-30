@@ -172,7 +172,7 @@ aninhado %>%
   #ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
   ggplot2::scale_fill_viridis_c() +
   ggplot2::coord_equal() +
-  ggplot2::labs(fill=expression(paste("Beta_",CH[4]))) +
+  ggplot2::labs(fill=expression(paste("Beta_x",CH[4]))) +
   ggspatial::annotation_scale(
     location="bl",
     plot_unit="km",
@@ -187,9 +187,33 @@ aninhado %>%
   ggplot2::scale_fill_gradient(low = "yellow", high = "blue") +
   #ggplot2::scale_fill_viridis_c() +
   ggplot2::coord_equal() +
-  ggplot2::labs(fill=expression(paste("Beta_",CO[2]))) +
+  ggplot2::labs(fill=expression(paste("Beta_x",CO[2]))) +
   ggspatial::annotation_scale(
     location="bl",
     plot_unit="km",
     height = ggplot2::unit(0.2,"cm")) +
   tema_mapa()
+
+aninhado <- aninhado %>% unnest(cols = c(betaxco2, betach4)) %>%
+  mutate(
+    flag_norte = def_pol(X, Y, pol_norte),
+    flag_nordeste = def_pol(X, Y, pol_nordeste),
+    flag_sul = def_pol(X, Y, pol_sul),
+    flag_sudeste = def_pol(X, Y, pol_sudeste),
+    flag_centroeste = def_pol(X, Y, pol_centroeste)
+  )
+aninhado %>%
+  pivot_longer(cols=c(flag_norte,flag_sul,
+                      flag_centroeste,
+                      flag_nordeste, flag_sudeste),
+               names_to = "regiao",
+               values_to = "flag") %>%
+  filter(flag) %>%
+  mutate(
+    regiao = str_remove(regiao,"flag_")
+  ) %>%
+  ggplot(aes(y=betaxco2,x=betach4,
+             color=regiao)) +
+  geom_point() +
+  facet_wrap(~regiao)
+
