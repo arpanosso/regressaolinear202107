@@ -183,28 +183,26 @@ for(ano in 2015:2020){
      ) |>
      dplyr::group_by(region, latitude, longitude) |>
      tidyr::nest()
-}
 
-#
-#   # Adicionando as colunas da regressão linear
-#   oco2_nest <- oco2_nest |>
-#     dplyr::mutate(
-#       beta_line = purrr::map(data,linear_reg, output="beta1"),
-#       p_value = purrr::map(data,linear_reg, output="p_value"),
-#       partial = purrr::map(data,linear_reg, output="partial"),
-#       n_obs = purrr::map(data,linear_reg, output="n")
-#       #plot = purrr::map(data,linear_reg, output="plot"),
-#       #hist = purrr::map(data,linear_reg, output="hist")
-#     )
-#   oco2_nest$Ano <- ano
-#   oco2_nest <- oco2_nest |> relocate(Ano)
-#
-#   if( ano == 2015){
-#     oco2_nest_total <-  oco2_nest
-#   } else {
-#     oco2_nest_total <- rbind(oco2_nest_total, oco2_nest)
-#   }
-# }
+  # Adicionando as colunas da regressão linear
+  oco2_nest <- oco2_nest |>
+    dplyr::mutate(
+      beta_line = purrr::map(data,linear_reg, output="beta1"),
+      p_value = purrr::map(data,linear_reg, output="p_value"),
+      partial = purrr::map(data,linear_reg, output="partial"),
+      n_obs = purrr::map(data,linear_reg, output="n")
+      #plot = purrr::map(data,linear_reg, output="plot"),
+      #hist = purrr::map(data,linear_reg, output="hist")
+    )
+  oco2_nest$Ano <- ano
+  oco2_nest <- oco2_nest |> relocate(Ano)
+
+  if( ano == 2015){
+    oco2_nest_total <-  oco2_nest
+  } else {
+    oco2_nest_total <- rbind(oco2_nest_total, oco2_nest)
+  }
+}
 # readr::write_rds(oco2_nest_total,"data-raw/oco2_betanom.rds")
 oco2_betanom <- readr::read_rds("data-raw/oco2_betanom.rds")
 
